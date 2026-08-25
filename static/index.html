@@ -55,6 +55,16 @@
           </div>
           <span id="pageBadge" class="page-badge">PDF page —</span>
         </div>
+        <div id="startPrompt" class="start-prompt" hidden>
+          <div>
+            <strong id="startTitle">Your book is ready</strong>
+            <span id="startText"></span>
+          </div>
+          <div class="resume-actions">
+            <button id="readPreface" class="text-button" type="button" hidden>Read the preface</button>
+            <button id="beginBook" class="small-button" type="button">Begin reading</button>
+          </div>
+        </div>
         <div id="resumePrompt" class="resume-prompt" hidden>
           <div>
             <strong>Continue where you left off?</strong>
@@ -112,6 +122,6 @@
       </div>
     </section>
 
-    <script type="module" src="/static/app.js?v=5"></script>
+    <script type="module" src="/static/app.js?v=6"></script>
   </body>
 </html>

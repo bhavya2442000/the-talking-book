@@ -133,7 +133,7 @@ textarea:focus, select:focus { outline: 3px solid rgba(216, 90, 55, .16); border
 .reader-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 30px; max-width: 760px; margin: 0 auto 42px; }
 .reader-header h1 { margin: 8px 0 0; font: 600 clamp(32px, 4vw, 50px)/1.1 "Literata", serif; letter-spacing: -.035em; }
 .page-badge { flex: none; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; }
-.resume-prompt {
+.resume-prompt, .start-prompt {
   max-width: 760px;
   display: flex;
   align-items: center;
@@ -146,9 +146,10 @@ textarea:focus, select:focus { outline: 3px solid rgba(216, 90, 55, .16); border
   background: #fff6d6;
   box-shadow: 0 8px 24px rgba(67, 55, 18, .07);
 }
-.resume-prompt > div:first-child { display: grid; gap: 3px; }
-.resume-prompt strong { font-size: 14px; }
-.resume-prompt span { color: #716536; font-size: 12px; }
+.start-prompt { border-color: #9ebcac; background: #edf7f1; }
+.resume-prompt > div:first-child, .start-prompt > div:first-child { display: grid; gap: 3px; }
+.resume-prompt strong, .start-prompt strong { font-size: 14px; }
+.resume-prompt span, .start-prompt span { color: #52645b; font-size: 12px; }
 .resume-actions { flex: none; display: flex; align-items: center; gap: 8px; }
 .text-button, .small-button { min-height: 34px; padding: 0 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
 .text-button { border: 0; color: #6a5d2c; background: transparent; }
@@ -220,7 +221,7 @@ textarea:focus, select:focus { outline: 3px solid rgba(216, 90, 55, .16); border
   .app-shell { display: block; }
   .sidebar { position: relative; top: auto; height: auto; max-height: 360px; border-right: 0; border-bottom: 1px solid var(--line); }
   .reader-column { padding: 38px 22px 70px; }
-  .resume-prompt { align-items: flex-start; flex-direction: column; margin-right: 22px; margin-left: 22px; }
+  .resume-prompt, .start-prompt { align-items: flex-start; flex-direction: column; margin-right: 22px; margin-left: 22px; }
   .companion { height: auto; border-left: 0; }
   .player { right: 8px; bottom: 8px; left: 8px; grid-template-columns: 1fr auto; padding: 10px 14px; }
   .transport { gap: 5px; }

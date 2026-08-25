@@ -45,12 +45,12 @@ The quality gate is:
 | Playback reliability | Working | Explicit Ready/Loading/Playing/Paused/Error state, stale-playback cancellation, two-sentence prefetch, and bounded client audio cache. |
 | Reading memory | Working | Save position, speed, and narration mode per book in browser storage; offer to resume on return. |
 | Reading companion | Working | Ask a question about the current passage and receive an answer grounded in the surrounding book text and PDF page numbers. |
-| Automated verification | Working | 14 Python tests and 5 JavaScript tests currently pass, backed by a repeatable manual smoke checklist. |
-| First-time reading experience | Next | One-book opening flow, reading-start classification, and preface choice are not implemented yet. |
+| Automated verification | Working | 18 Python tests and 7 JavaScript tests currently pass, backed by a repeatable manual smoke checklist. |
+| First-time reading experience | Working | With one book, the app introduces its extracted title and author, offers a detected preface, or opens the first main chapter. |
 | Bookmarks and notes | Later | Not implemented yet; deferred until extraction and first-session behavior are reliable. |
 | Voice selection and sleep timer | Later | Not implemented yet. |
 | Passage actions and follow-up chat | Later | Explain works; Summarize, Define, Example, selected-text actions, and conversation history are not implemented. |
-| Extraction QA | Current focus | Golden regression cases for page fragments, captions, cross-page paragraphs, and reading-start classification are the next milestone. |
+| Extraction QA | Current focus | Front matter and contents are excluded from normal narration; visible caption and cross-page paragraph artifacts still need targeted cleanup. |
 | Microphone commands | Later | Spoken “pause,” “repeat,” and “explain that” commands are not implemented yet. |
 | Live web research | Later | The companion currently uses only local book context; it does not search the web or collect outside commentary. |
 
@@ -178,10 +178,11 @@ The top-level document contains:
 book
 ├── metadata: id, title, author, source filename, source SHA-256
 ├── counts: pages, words, sections, paragraphs, segments
-├── sections[]: outline title, depth, page range, segment range
+├── reading_order: first eligible, preface, introduction, and main-text cursors
+├── sections[]: outline title, depth, page/segment range, and reading role
 ├── pages[]: paragraph and segment ranges for each physical page
-├── paragraphs[]: text, page, section, and sentence range
-└── segments[]: sentence text, page, section, and paragraph index
+├── paragraphs[]: text, page, section, sentence range, and narration eligibility
+└── segments[]: sentence text, page, section, paragraph, role, and eligibility
 ```
 
 The sentence index is the authoritative reader cursor shared by navigation,
@@ -408,16 +409,16 @@ node --check static/app.js
 Current verified result:
 
 ```text
-Python:     8 passed
-JavaScript: 3 passed
+Python:     18 passed
+JavaScript: 7 passed
 Syntax:     static/app.js valid
 ```
 
 The Python suite covers paragraph inference, dehyphenation, sentence splitting,
-book endpoints, missing-key behavior, grounded prompt construction, speech
-generation caching, and invalid upload rejection. The JavaScript suite covers
-cursor validation, bounded movement, chapter-progress calculation, and prefetch
-selection.
+golden reading-role and start-cursor expectations, book endpoints, missing-key
+behavior, grounded prompt construction, speech generation caching, and invalid
+upload rejection. The JavaScript suite also verifies that narration skips
+non-readable segments and honors explicit preface and main-text start cursors.
 
 ## Engineering checks
 
@@ -457,9 +458,11 @@ bytecode compilation. The project rules that guide coding agents live in
 - Layout reconstruction is heuristic. Headers, captions, footnotes, marginalia,
   and multi-column pages can be classified incorrectly.
 - Paragraphs split across physical page boundaries are not joined.
-- The normal narration sequence does not yet reliably exclude table-of-contents
-  material, page-number fragments, or other non-reading blocks.
-- The first-session flow does not yet offer a preface-or-main-text choice.
+- Outline-classified table-of-contents and front-matter sections are excluded
+  from narration, but captions and other non-prose blocks within chapters can
+  still be read.
+- The first-session flow offers a detected preface or the main text, but it does
+  not yet provide outside background about the book.
 - English sentence segmentation is configured; multilingual books need language
   detection and appropriate segmenters.
 - The OpenAI narration voice is fixed to `alloy`; there is no voice picker yet.
@@ -491,12 +494,13 @@ fully live voice layer.
 
 ### Current focus: extraction trust
 
-- add golden regression cases from permitted or sanitized difficult PDF pages;
-- exclude table-of-contents entries and page-number fragments from narration;
-- classify prefaces, introductions, captions, and other non-reading blocks; and
-- join paragraphs that continue across physical page boundaries.
+- listen through the real Sapiens opening and fix only artifacts that disrupt
+  narration;
+- exclude caption-like blocks within chapters when they are clearly detected;
+  and
+- join obvious paragraphs that continue across physical page boundaries.
 
-### Next: first-time reading experience
+### Implemented: first-time reading experience
 
 - identify the one available book and its author;
 - offer the preface when one is detected;

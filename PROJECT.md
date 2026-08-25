@@ -29,17 +29,25 @@ other later features during this slice.
 - Browser position and narration preferences persist in `localStorage`.
 - Passage-grounded explanations work.
 - The Phase 0 baseline is commit `d5b0df9`.
-- Last verified on 2026-08-25: 14 Python tests and 5 JavaScript tests pass.
+- Outline sections now include additive `reading_role` and
+  `narration_eligible` metadata.
+- Extracted books expose stable first-eligible, preface, introduction, and
+  main-text segment cursors without changing physical segment indexes.
+- Narration navigation now skips sections and segments marked as non-readable.
+- The one-book first-session flow introduces the extracted title and author,
+  offers a preface when one is detected, and otherwise opens the first main
+  chapter.
+- The local Sapiens index has been rebuilt and now starts at Chapter 1 on PDF
+  page 11 instead of reading its contents or other front matter.
+- Last verified on 2026-08-25: 18 Python tests and 7 JavaScript tests pass.
 
 ## Known extraction risks
 
-- Page-number fragments can appear in narration.
-- Running headers and repeated material may be treated as prose.
-- Captions and other non-prose blocks can enter the reading sequence.
+- Captions and other non-prose blocks inside chapters can enter the reading
+  sequence. This is visible in the current Sapiens extraction.
 - Paragraphs split across physical pages are not reliably joined.
-- Table-of-contents material is not explicitly excluded from narration.
-- Preface, foreword, introduction, and first main-text positions are not
-  explicitly classified.
+- Classification relies mainly on publisher outline titles and is not yet a
+  general solution for every PDF layout.
 
 For a product that reads verbatim and cites physical pages, these are release
 blockers rather than cosmetic imperfections.
@@ -102,11 +110,12 @@ encountering navigation or extraction debris.
 
 ## Exact next task
 
-**EXTRACT-1: Build the golden extraction fixture set and add reading-eligibility
-expectations.**
+**EXTRACT-2B: Listen through the opening of the rebuilt Sapiens index and fix
+only the page-boundary paragraph splits or captions that audibly disrupt that
+real reading path. Add one focused regression case for each fix.**
 
-Do not begin the first-session UI until the extraction fixtures expose a stable
-preface start and main-text start.
+Do not broaden this into a universal PDF-layout project. Once the opening reads
+cleanly, stop extraction work and evaluate the one-book first-session flow.
 
 ## Verification
 
