@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Read, listen to, and discuss your books." />
+    <title>Talking Book</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/styles.css?v=3" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Talking Book home">
+        <span class="brand-mark" aria-hidden="true">T</span>
+        <span>Talking Book</span>
+      </a>
+      <form id="uploadForm" class="upload-form">
+        <label class="upload-button" for="pdfInput">Upload PDF</label>
+        <input id="pdfInput" name="file" type="file" accept="application/pdf,.pdf" />
+        <span id="uploadStatus" class="status-text" aria-live="polite"></span>
+      </form>
+    </header>
+
+    <main id="emptyState" class="empty-state" hidden>
+      <div class="empty-copy">
+        <span class="eyebrow">Your books can listen back</span>
+        <h1>Turn a static PDF into a conversation.</h1>
+        <p>Upload a text-based PDF. We’ll preserve its pages and chapters, read it aloud, and keep every question anchored to your current passage.</p>
+        <label class="primary-button" for="pdfInput">Choose your first book</label>
+      </div>
+    </main>
+
+    <main id="appShell" class="app-shell" hidden>
+      <aside class="sidebar">
+        <label class="field-label" for="bookSelect">Library</label>
+        <select id="bookSelect" class="book-select"></select>
+        <div class="book-summary">
+          <p id="bookAuthor"></p>
+          <p id="bookStats"></p>
+        </div>
+        <div class="toc-heading">
+          <span>Contents</span>
+          <button id="collapseToc" class="icon-button" type="button" aria-label="Collapse contents">←</button>
+        </div>
+        <nav id="toc" class="toc" aria-label="Book contents"></nav>
+      </aside>
+
+      <section class="reader-column">
+        <div class="reader-header">
+          <div>
+            <span id="sectionKicker" class="eyebrow">Now reading</span>
+            <h1 id="sectionTitle">Select a chapter</h1>
+          </div>
+          <span id="pageBadge" class="page-badge">PDF page —</span>
+        </div>
+        <div id="resumePrompt" class="resume-prompt" hidden>
+          <div>
+            <strong>Continue where you left off?</strong>
+            <span id="resumeText">Your saved position is ready.</span>
+          </div>
+          <div class="resume-actions">
+            <button id="dismissResume" class="text-button" type="button">Start here</button>
+            <button id="continueResume" class="small-button" type="button">Continue</button>
+          </div>
+        </div>
+        <article id="reader" class="reader" aria-live="polite"></article>
+      </section>
+
+      <aside class="companion">
+        <span class="eyebrow">Book companion</span>
+        <h2>Ask about this passage</h2>
+        <blockquote id="currentText" class="current-text">Choose a sentence to begin.</blockquote>
+        <form id="questionForm">
+          <label class="field-label" for="question">Your question</label>
+          <textarea id="question" rows="4" placeholder="Explain this in simpler language…"></textarea>
+          <button id="askButton" class="primary-button full-width" type="submit">Explain this</button>
+        </form>
+        <div id="answer" class="answer" aria-live="polite"></div>
+        <div id="apiNotice" class="api-notice" hidden>
+          Browser narration is ready. Add an OpenAI API key to enable AI explanations and cloud voices.
+        </div>
+      </aside>
+    </main>
+
+    <section id="player" class="player" hidden aria-label="Narration controls">
+      <div class="now-playing">
+        <div class="player-context">
+          <span id="playerSection">Not playing</span>
+          <span id="playbackStatus" class="playback-status" data-state="stopped">Ready</span>
+        </div>
+        <strong id="playerText">Choose a sentence</strong>
+        <div class="chapter-progress" aria-label="Chapter progress">
+          <span class="progress-track"><span id="progressBar" class="progress-bar"></span></span>
+          <span id="progressText">0%</span>
+        </div>
+      </div>
+      <div class="transport">
+        <button id="previousButton" class="round-button secondary" type="button" title="Previous sentence" aria-label="Previous sentence">‹</button>
+        <button id="repeatParagraphButton" class="round-button secondary compact-label" type="button" title="Repeat paragraph" aria-label="Repeat paragraph">↶¶</button>
+        <button id="playButton" class="round-button primary" type="button" title="Play or continue" aria-label="Play or continue">▶</button>
+        <button id="pauseButton" class="round-button secondary" type="button" title="Pause" aria-label="Pause">Ⅱ</button>
+        <button id="nextButton" class="round-button secondary" type="button" title="Next sentence" aria-label="Next sentence">›</button>
+      </div>
+      <div class="voice-controls">
+        <label for="rate">Speed <span id="rateValue">1×</span></label>
+        <input id="rate" type="range" min="0.7" max="1.6" value="1" step="0.1" />
+        <label id="cloudVoiceLabel" class="cloud-toggle" hidden>
+          <input id="cloudVoice" type="checkbox" /> OpenAI voice
+        </label>
+      </div>
+    </section>
+
+    <script type="module" src="/static/app.js?v=4"></script>
+  </body>
+</html>

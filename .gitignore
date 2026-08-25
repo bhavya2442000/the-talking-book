@@ -1,0 +1,9 @@
+.venv/
+.env
+__pycache__/
+.pytest_cache/
+*.py[cod]
+data/
+
+# Local source books (copyrighted or otherwise user-provided)
+/*.pdf
