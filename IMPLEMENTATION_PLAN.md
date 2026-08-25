@@ -83,8 +83,8 @@ The current Sapiens index contains:
 
 The verified automated baseline is:
 
-- 8 passing Python tests;
-- 3 passing JavaScript tests; and
+- 14 passing Python tests;
+- 5 passing JavaScript tests; and
 - a valid JavaScript syntax check for `static/app.js`.
 
 ### Baseline limitations relevant to this roadmap

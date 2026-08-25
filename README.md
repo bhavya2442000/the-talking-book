@@ -16,6 +16,8 @@ hosted, multi-user product.
   final-product principles.
 - [Incremental implementation plan](IMPLEMENTATION_PLAN.md) — the cumulative,
   phase-by-phase roadmap from the current reader to that vision.
+- [Manual smoke checklist](docs/SMOKE_TEST.md) — the repeatable browser and
+  OpenAI narration checks used before each roadmap phase is considered stable.
 
 ## Current progress
 
@@ -30,7 +32,7 @@ hosted, multi-user product.
 | Playback reliability | Working | Explicit Ready/Loading/Playing/Paused/Error state, stale-playback cancellation, two-sentence prefetch, and bounded client audio cache. |
 | Reading memory | Working | Save position, speed, and narration mode per book in browser storage; offer to resume on return. |
 | Reading companion | Working | Ask a question about the current passage and receive an answer grounded in the surrounding book text and PDF page numbers. |
-| Automated verification | Working | 8 Python tests and 3 JavaScript tests currently pass. |
+| Automated verification | Working | 14 Python tests and 5 JavaScript tests currently pass, backed by a repeatable manual smoke checklist. |
 | Bookmarks and notes | Next | Not implemented yet. |
 | Voice selection and sleep timer | Next | Not implemented yet. |
 | Passage actions and follow-up chat | Next | Explain works; Summarize, Define, Example, selected-text actions, and conversation history are not implemented. |
