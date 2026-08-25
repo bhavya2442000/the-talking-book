@@ -10,12 +10,32 @@ This repository is currently a working local pre-alpha vertical slice. The core
 read → listen → interrupt → ask loop works in the browser. It is not yet a
 hosted, multi-user product.
 
+## Near-term scope
+
+The immediate product slice is intentionally narrow: one local user, one book,
+trustworthy extraction, and a good first-reading experience. The next work is
+not multi-book selection, accounts, synchronization, images, web research, or
+full voice control. Those remain later roadmap items.
+
+The quality gate is:
+
+1. Prove that the extracted reading order is trustworthy.
+2. Make the first session identify the book, skip non-reading material such as
+   the table of contents, offer the preface when present, and begin the main
+   text at the correct page and sentence.
+3. Only then add durable memory and the first narrow voice-control milestone.
+
 ## Project documents
 
+- [Current project status](STATUS.md) — compact snapshot of what is verified and
+  the exact next task.
+- [Task board](TASKS.md) — ownership, dependencies, and parallel-work rules.
 - [Product vision](VISION.md) — the complete voice-first reader experience and
   final-product principles.
 - [Incremental implementation plan](IMPLEMENTATION_PLAN.md) — the cumulative,
   phase-by-phase roadmap from the current reader to that vision.
+- [Task handoff template](docs/TASK_HANDOFF_TEMPLATE.md) — the required
+  completion and next-step format for agents.
 - [Manual smoke checklist](docs/SMOKE_TEST.md) — the repeatable browser and
   OpenAI narration checks used before each roadmap phase is considered stable.
 
@@ -33,12 +53,13 @@ hosted, multi-user product.
 | Reading memory | Working | Save position, speed, and narration mode per book in browser storage; offer to resume on return. |
 | Reading companion | Working | Ask a question about the current passage and receive an answer grounded in the surrounding book text and PDF page numbers. |
 | Automated verification | Working | 14 Python tests and 5 JavaScript tests currently pass, backed by a repeatable manual smoke checklist. |
-| Bookmarks and notes | Next | Not implemented yet. |
-| Voice selection and sleep timer | Next | Not implemented yet. |
-| Passage actions and follow-up chat | Next | Explain works; Summarize, Define, Example, selected-text actions, and conversation history are not implemented. |
-| Parsing corrections | Planned | No UI yet for editing extracted text, joining paragraphs, or classifying headings/captions/footnotes. |
-| Microphone commands | Planned | Spoken “pause,” “repeat,” and “explain that” commands are not implemented yet. |
-| Live web research | Planned | The companion currently uses only local book context; it does not search the web or collect outside commentary. |
+| First-time reading experience | Next | One-book opening flow, reading-start classification, and preface choice are not implemented yet. |
+| Bookmarks and notes | Later | Not implemented yet; deferred until extraction and first-session behavior are reliable. |
+| Voice selection and sleep timer | Later | Not implemented yet. |
+| Passage actions and follow-up chat | Later | Explain works; Summarize, Define, Example, selected-text actions, and conversation history are not implemented. |
+| Extraction QA | Current focus | Golden regression cases for page fragments, captions, cross-page paragraphs, and reading-start classification are the next milestone. |
+| Microphone commands | Later | Spoken “pause,” “repeat,” and “explain that” commands are not implemented yet. |
+| Live web research | Later | The companion currently uses only local book context; it does not search the web or collect outside commentary. |
 
 ## What you can do today
 
@@ -189,6 +210,8 @@ narration, progress persistence, and companion questions.
 ```text
 Talking_book/
 ├── AGENTS.md                  Agent and engineering instructions
+├── STATUS.md                  Current verified state and exact next task
+├── TASKS.md                   Coordination board and file ownership rules
 ├── app/
 │   ├── main.py                 FastAPI routes and OpenAI integrations
 │   ├── parser.py               Page-aware PDF extraction pipeline
@@ -205,6 +228,9 @@ Talking_book/
 │   ├── test_api.py             API, grounding, upload, and audio-cache tests
 │   ├── test_parser.py          Layout and sentence parsing tests
 │   └── playback_core.test.mjs  Playback helper tests
+├── docs/
+│   ├── SMOKE_TEST.md            Manual regression checklist
+│   └── TASK_HANDOFF_TEMPLATE.md Agent completion template
 ├── data/                       Local generated data; ignored by Git
 ├── .env.example               Safe configuration template
 ├── pyproject.toml              Pytest configuration
@@ -440,6 +466,9 @@ bytecode compilation. The project rules that guide coding agents live in
 - Layout reconstruction is heuristic. Headers, captions, footnotes, marginalia,
   and multi-column pages can be classified incorrectly.
 - Paragraphs split across physical page boundaries are not joined.
+- The normal narration sequence does not yet reliably exclude table-of-contents
+  material, page-number fragments, or other non-reading blocks.
+- The first-session flow does not yet offer a preface-or-main-text choice.
 - English sentence segmentation is configured; multilingual books need language
   detection and appropriate segmenters.
 - The OpenAI narration voice is fixed to `alloy`; there is no voice picker yet.
@@ -469,7 +498,21 @@ fully live voice layer.
 - grounded “Explain this” interaction; and
 - automated parser, API, and playback-helper tests.
 
-### Next: reader comfort and memory
+### Current focus: extraction trust
+
+- add golden regression cases from permitted or sanitized difficult PDF pages;
+- exclude table-of-contents entries and page-number fragments from narration;
+- classify prefaces, introductions, captions, and other non-reading blocks; and
+- join paragraphs that continue across physical page boundaries.
+
+### Next: first-time reading experience
+
+- identify the one available book and its author;
+- offer the preface when one is detected;
+- begin at the first eligible main-text segment when the preface is skipped; and
+- keep the current sentence and physical page visible and correct.
+
+### Later: reader comfort and memory
 
 - bookmarks with optional notes;
 - voice selection for OpenAI narration;
@@ -484,14 +527,6 @@ fully live voice layer.
 - page-cited answers displayed as structured references;
 - multi-turn follow-up questions tied to a passage; and
 - book-wide retrieval when the local paragraph window is insufficient.
-
-### Next: improve imperfect extraction
-
-- automatically skip or classify page numbers, running headers, captions,
-  footnotes, and headings during narration;
-- join paragraphs that continue across page boundaries;
-- let the reader edit extracted text and change a block's type; and
-- persist corrections without modifying the source PDF.
 
 ### Later: live conversation and research
 
@@ -511,7 +546,6 @@ select a chapter and sentence, listen continuously, interrupt or navigate
 without overlapping audio, return to the saved position, and ask for a grounded
 explanation of the current passage. That milestone is implemented and tested.
 
-The next meaningful milestone is a comfortable daily reader: bookmarks and
-notes, selectable narration voices, sleep controls, richer passage actions, and
-better handling of extraction mistakes. Spoken commands come after those
-interactions are dependable.
+The next meaningful milestone is a trustworthy first reading session for one
+local reader and one book. Durable memory, richer passage actions, and spoken
+commands come only after extraction and reading-start behavior are dependable.

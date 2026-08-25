@@ -2,10 +2,18 @@
 
 ## Before changing the project
 
-- Read `README.md`, `VISION.md`, and `IMPLEMENTATION_PLAN.md` before making
-  implementation decisions.
-- Treat the current roadmap phase as authoritative. Do not skip a phase's
-  acceptance criteria to reach a later voice or research feature.
+- Read only the project documents relevant to the task; do not load every
+  document by default. Use this routing:
+  - `STATUS.md` first for the current phase, verified baseline, blockers, and
+    exact next task.
+  - `README.md` for setup, current behavior, and user-facing operations.
+  - `VISION.md` for product or reader-experience decisions.
+  - `IMPLEMENTATION_PLAN.md` for roadmap scope, dependencies, and acceptance
+    criteria.
+- Use `TASKS.md` for task ownership and file scopes when work is parallelized.
+- When implementing roadmap work, identify the applicable phase in
+  `IMPLEMENTATION_PLAN.md` and preserve its dependencies and acceptance
+  criteria.
 - Preserve existing user work. Never use destructive Git commands or delete
   uploaded books, indexes, or generated audio without explicit authorization.
 
@@ -42,6 +50,24 @@ directly.
 - For OpenAI API behavior, consult the official OpenAI documentation and record
   the relevant contract in the implementation.
 - Never claim a phase is complete with failing or skipped checks.
+
+## Task handoffs and parallel work
+
+- At completion, report the result, changed files, verification, blockers, and
+  one exact next task using `docs/TASK_HANDOFF_TEMPLATE.md`.
+- The coordinator alone updates `STATUS.md` and `TASKS.md` after integration
+  and verification. A worker reports a handoff instead of changing shared
+  status files unless explicitly assigned to coordinate.
+- Parallel workers must use separate branches or worktrees and non-overlapping
+  write scopes. Shared contracts are agreed before implementation begins.
+- Root status, task-board, roadmap, and shared configuration files are
+  coordinator-owned integration files.
+- Merge worker branches one at a time and run `bash scripts/check.sh` after
+  each merge.
+
+`AGENTS.md` is intentionally short and stable. Human-facing explanations,
+product context, and the detailed roadmap belong in the linked documents rather
+than being repeated here.
 
 ## Useful commands
 

@@ -27,6 +27,22 @@ state, actions, and tool contracts established earlier.
    bounded end-to-end verification.
 10. Update the main README and this roadmap whenever a phase changes status.
 
+## Near-term scope boundary
+
+Before durable memory or voice work, the project has one intentionally narrow
+slice:
+
+- one local user;
+- one indexed book;
+- extraction that can be trusted for verbatim narration and page references;
+- a first-reading opening that skips non-reading material, offers the preface,
+  and begins the main text correctly.
+
+Do not broaden this slice with accounts, multi-book selection, synchronization,
+images, outside research, or a general-purpose conversation system. Those
+features remain in the later roadmap only after the extraction and opening
+experience have passed their acceptance criteria.
+
 ## Current verified baseline
 
 The current application is a working local pre-alpha vertical slice.
@@ -321,8 +337,110 @@ documentation are added.
 
 ### Foundation for the next phase
 
-Phase 1 can change persistence with confidence that reader and playback
-regressions will be detected.
+The extraction and first-reading gates below must pass before Phase 1 changes
+persistence. The baseline tests and smoke checklist remain required throughout.
+
+## Phase 0.5 — Extraction trust and first-reading experience
+
+### Goal
+
+Make one permitted book read in a trustworthy order and make the first session
+feel like beginning a book rather than browsing a PDF index.
+
+### Why this comes before durable memory and voice
+
+Verbatim narration and page-grounded explanations are only valuable when the
+parser has not mistaken table-of-contents entries, page numbers, captions, or
+page breaks for the book's prose. The first-time experience also needs a stable
+reading start before it can save or resume one.
+
+### Dependencies
+
+- Phase 0 regression baseline.
+- A small permitted or sanitized fixture set from difficult PDF pages.
+- The existing page, paragraph, section, and sentence index structures.
+
+### Small implementation steps
+
+#### 0.5.1 Build the extraction QA fixture set
+
+1. Select permitted or sanitized pages that contain page numbers, running
+   headers, captions, a preface, a table of contents, and a paragraph split
+   across pages.
+2. Store expected block types, reading eligibility, page numbers, and sentence
+   boundaries without committing a copyrighted source book.
+3. Add a fixture report that makes parser regressions easy to inspect.
+
+#### 0.5.2 Classify the reading order
+
+1. Preserve title, author, and publication metadata separately from narration.
+2. Mark table-of-contents pages as navigation-only.
+3. Identify preface, foreword, and introduction when the PDF structure permits.
+4. Mark the first readable main-text segment explicitly.
+5. Keep appendices, indexes, captions, and other non-prose blocks available for
+   page context but exclude them from normal narration.
+6. Define a safe fallback when classification is uncertain: show the reader a
+   choice instead of silently narrating the wrong material.
+
+#### 0.5.3 Repair high-risk extraction cases
+
+1. Remove page-number fragments and repeated running headers from prose.
+2. Join paragraphs that continue across physical page boundaries.
+3. Keep captions associated with their page and nearby figure without treating
+   them as ordinary paragraphs.
+4. Preserve physical PDF page numbers on every narrated segment.
+5. Add regression tests for each repaired case.
+
+#### 0.5.4 Implement the one-book opening experience
+
+1. With one indexed book, select it automatically.
+2. Introduce the extracted title and author before narration begins.
+3. Do not narrate the table of contents, title-page metadata, or other
+   navigation-only material.
+4. If a preface or foreword exists, ask whether the reader wants it read.
+5. If the reader skips it, begin at the first main-text segment.
+6. Show the current chapter, sentence, and physical PDF page.
+7. Keep the opening flow usable with manual controls when no microphone exists.
+8. Use external web context only when explicitly requested; it is not required
+   for this first milestone.
+
+### Data and interface changes
+
+- Add explicit block or segment reading-eligibility metadata.
+- Add an explicit first-readable-segment and optional preface reference.
+- Add fixture metadata for expected page and reading-order behavior.
+- Add only the minimal UI state needed to choose preface or main text.
+- Do not add accounts, multi-book state, durable notes, web search, or voice
+  session state in this phase.
+
+### Test scenarios
+
+- A table of contents never appears in the normal narration sequence.
+- A detected preface is offered before main text.
+- Skipping the preface starts at the first main-text segment.
+- A book without a preface starts directly at main text.
+- Page-number fragments and repeated headers are not narrated.
+- Captions are not treated as ordinary prose.
+- Cross-page paragraphs remain one logical paragraph with correct page links.
+- The first narrated segment has the expected physical page.
+- The opening works with one book and no microphone or API key.
+- Existing parser, API, playback, and smoke checks remain green.
+
+### Completion criteria
+
+- Golden extraction fixtures pass.
+- The parser produces a trustworthy reading order for the fixture set.
+- The one-book opening flow skips the table of contents and handles preface
+  choice correctly.
+- The reader begins at the correct main-text sentence and page.
+- No multi-user, multi-book, web-research, image, or voice scope has leaked into
+  the milestone.
+
+### Foundation for the next phase
+
+Phase 1 can add durable reader memory to a known-good book and known-good
+starting point. Phase 2 can then put the opening and playback operations behind
+shared actions before the first voice milestone.
 
 ## Phase 1 — Durable personal reading memory
 
