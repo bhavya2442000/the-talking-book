@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "description": "Synthetic extraction expectations; contains no copyrighted book text.",
+  "sections": [
+    {
+      "title": "Title Page",
+      "page": 1,
+      "level": 0,
+      "expected_role": "front_matter",
+      "expected_narration_eligible": false
+    },
+    {
+      "title": "Copyright",
+      "page": 2,
+      "level": 0,
+      "expected_role": "front_matter",
+      "expected_narration_eligible": false
+    },
+    {
+      "title": "Contents",
+      "page": 3,
+      "level": 0,
+      "expected_role": "contents",
+      "expected_narration_eligible": false
+    },
+    {
+      "title": "Preface",
+      "page": 5,
+      "level": 0,
+      "expected_role": "preface",
+      "expected_narration_eligible": true
+    },
+    {
+      "title": "Introduction",
+      "page": 7,
+      "level": 0,
+      "expected_role": "introduction",
+      "expected_narration_eligible": true
+    },
+    {
+      "title": "Part One: Beginnings",
+      "page": 9,
+      "level": 0,
+      "expected_role": "main",
+      "expected_narration_eligible": true
+    },
+    {
+      "title": "1: The First Chapter",
+      "page": 10,
+      "level": 1,
+      "expected_role": "main",
+      "expected_narration_eligible": true
+    },
+    {
+      "title": "Afterword",
+      "page": 30,
+      "level": 0,
+      "expected_role": "main",
+      "expected_narration_eligible": true
+    },
+    {
+      "title": "Notes",
+      "page": 32,
+      "level": 0,
+      "expected_role": "back_matter",
+      "expected_narration_eligible": false
+    },
+    {
+      "title": "Image Credits",
+      "page": 36,
+      "level": 0,
+      "expected_role": "back_matter",
+      "expected_narration_eligible": false
+    }
+  ],
+  "expected_reading_order": {
+    "first_eligible_segment": 3,
+    "preface_segment": 3,
+    "introduction_segment": 4,
+    "main_text_segment": 6
+  },
+  "risk_cases": [
+    {
+      "type": "edge_page_number",
+      "page": 10,
+      "text": "10",
+      "expected_narration_eligible": false
+    },
+    {
+      "type": "running_header",
+      "page": 11,
+      "text": "SYNTHETIC BOOK TITLE",
+      "expected_narration_eligible": false
+    },
+    {
+      "type": "caption",
+      "page": 12,
+      "text": "Figure 1. A synthetic example.",
+      "expected_narration_eligible": false
+    },
+    {
+      "type": "cross_page_paragraph",
+      "start_page": 12,
+      "end_page": 13,
+      "first_fragment": "The paragraph begins on one physical page and",
+      "second_fragment": "continues on the next without a semantic break.",
+      "expected_text": "The paragraph begins on one physical page and continues on the next without a semantic break."
+    }
+  ]
+}

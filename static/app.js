@@ -1,11 +1,13 @@
 import {
+  adjacentNarrationSegmentIndex,
   chapterProgressPercent,
-  clampSegmentIndex,
   isCurrentPlaybackToken,
+  isNarrationEligible,
   isValidSegmentIndex,
   paragraphStartSegment,
-  upcomingSegmentIndices,
-} from "./playback_core.mjs?v=2";
+  readingOrderSegmentIndex,
+  upcomingNarrationSegmentIndices,
+} from "./playback_core.mjs?v=3";
 
 const state = {
   config: null,
@@ -62,6 +64,11 @@ const elements = {
   resumeText: $("#resumeText"),
   continueResume: $("#continueResume"),
   dismissResume: $("#dismissResume"),
+  startPrompt: $("#startPrompt"),
+  startTitle: $("#startTitle"),
+  startText: $("#startText"),
+  readPreface: $("#readPreface"),
+  beginBook: $("#beginBook"),
 };
 
 async function api(path, options = {}) {
@@ -80,16 +87,26 @@ function sectionForSegment(segment) {
 }
 
 function chapterSections(book) {
-  return book.sections.filter((section) => section.segment_start != null);
+  return book.sections.filter((section) =>
+    section.segment_start != null && section.narration_eligible !== false
+  );
 }
 
 function firstReadableSegment(section) {
   const paragraph = state.book.paragraphs.find((candidate) =>
     candidate.section === section.index
+    && candidate.narration_eligible !== false
     && candidate.text.length >= 110
     && candidate.segment_start >= 0
   );
   return paragraph?.segment_start ?? section.segment_start;
+}
+
+function startSegment(kind = "main_text_segment") {
+  const candidate = readingOrderSegmentIndex(state.book, kind);
+  if (!isValidSegmentIndex(candidate, state.book?.segments.length)) return 0;
+  const section = sectionForSegment(state.book.segments[candidate]);
+  return section ? firstReadableSegment(section) : candidate;
 }
 
 function sessionKey(bookId) {
@@ -111,6 +128,7 @@ function saveSession() {
       segmentIndex: state.segmentIndex,
       rate: Number(elements.rate.value),
       cloudVoice: Boolean(elements.cloudVoice.checked),
+      started: true,
       updatedAt: new Date().toISOString(),
     }));
   } catch {
@@ -169,14 +187,15 @@ async function loadBook(bookId) {
   elements.emptyState.hidden = true;
   elements.appShell.hidden = false;
   elements.player.hidden = false;
+  elements.startPrompt.hidden = true;
+  elements.resumePrompt.hidden = true;
   renderToc();
-  const preferred = state.book.sections.find((section) => section.level === 1 && section.segment_start != null)
-    || chapterSections(state.book)[0];
-  const startingIndex = preferred ? firstReadableSegment(preferred) : 0;
-  if (preferred) selectSegment(startingIndex, { scroll: false, persist: false });
+  const startingIndex = startSegment();
+  selectSegment(startingIndex, { scroll: false, persist: false });
 
   const savedIndex = Number(saved?.segmentIndex);
   const canResume = isValidSegmentIndex(savedIndex, state.book.segments.length)
+    && isNarrationEligible(state.book.segments[savedIndex])
     && savedIndex !== startingIndex;
   state.resumeSegmentIndex = canResume ? savedIndex : null;
   elements.resumePrompt.hidden = !canResume;
@@ -184,6 +203,16 @@ async function loadBook(bookId) {
     const savedSegment = state.book.segments[savedIndex];
     const savedSection = sectionForSegment(savedSegment);
     elements.resumeText.textContent = `${savedSection?.title || "Saved passage"} · PDF page ${savedSegment.page}`;
+  } else if (!saved?.started) {
+    const author = state.book.author ? ` by ${state.book.author}` : "";
+    const prefaceIndex = state.book?.reading_order?.preface_segment;
+    const hasPreface = isValidSegmentIndex(prefaceIndex, state.book.segments.length);
+    elements.startTitle.textContent = `${state.book.title}${author}`;
+    elements.startText.textContent = hasPreface
+      ? "A preface is available. Read it first, or begin the main book."
+      : "The book is ready at its first main chapter.";
+    elements.readPreface.hidden = !hasPreface;
+    elements.startPrompt.hidden = false;
   }
   elements.uploadStatus.textContent = "";
 }
@@ -356,7 +385,7 @@ function usingCloudVoice() {
 
 function prefetchUpcoming(index) {
   if (!usingCloudVoice() || !state.book) return;
-  for (const nextIndex of upcomingSegmentIndices(index, state.book.segments.length, 2)) {
+  for (const nextIndex of upcomingNarrationSegmentIndices(index, state.book.segments, 2)) {
     getCloudAudio(nextIndex).catch((error) => {
       if (error.name !== "AbortError") console.warn("Narration prefetch failed", error);
     });
@@ -386,8 +415,10 @@ function updateTransport() {
   elements.playButton.textContent = state.status === "playing" ? "●" : state.status === "loading" ? "…" : "▶";
   elements.playButton.title = state.status === "paused" ? "Continue" : "Play";
   elements.pauseButton.disabled = !["loading", "playing"].includes(state.status);
-  elements.previousButton.disabled = !state.book || state.segmentIndex <= 0;
-  elements.nextButton.disabled = !state.book || state.segmentIndex >= state.book.segments.length - 1;
+  elements.previousButton.disabled = !state.book
+    || adjacentNarrationSegmentIndex(state.segmentIndex, state.book.segments, -1) === state.segmentIndex;
+  elements.nextButton.disabled = !state.book
+    || adjacentNarrationSegmentIndex(state.segmentIndex, state.book.segments, 1) === state.segmentIndex;
 }
 
 async function speakCurrent() {
@@ -400,11 +431,12 @@ async function speakCurrent() {
 
   const finished = () => {
     if (!isCurrentPlaybackToken(token, state.token) || state.status !== "playing") return;
-    if (state.segmentIndex + 1 >= state.book.segments.length) {
+    const nextIndex = adjacentNarrationSegmentIndex(state.segmentIndex, state.book.segments, 1);
+    if (nextIndex === state.segmentIndex) {
       setPlaybackStatus("stopped", "Finished");
       return;
     }
-    state.segmentIndex += 1;
+    state.segmentIndex = nextIndex;
     speakCurrent();
   };
 
@@ -479,7 +511,11 @@ function pausePlayback() {
 
 function moveBySentence(offset) {
   if (!state.book) return;
-  const target = clampSegmentIndex(state.segmentIndex + offset, state.book.segments.length);
+  const direction = offset < 0 ? -1 : 1;
+  let target = state.segmentIndex;
+  for (let count = 0; count < Math.abs(offset); count += 1) {
+    target = adjacentNarrationSegmentIndex(target, state.book.segments, direction);
+  }
   if (target === state.segmentIndex) return;
   const wasActive = ["playing", "loading"].includes(state.status);
   const wasPaused = state.status === "paused";
@@ -487,6 +523,13 @@ function moveBySentence(offset) {
   selectSegment(target);
   setPlaybackStatus(wasPaused ? "paused" : "stopped");
   if (wasActive) speakCurrent();
+}
+
+function beginReading(kind) {
+  elements.startPrompt.hidden = true;
+  selectSegment(startSegment(kind));
+  setPlaybackStatus("stopped");
+  speakCurrent();
 }
 
 function repeatParagraph() {
@@ -562,6 +605,8 @@ elements.nextButton.addEventListener("click", () => moveBySentence(1));
 elements.repeatParagraphButton.addEventListener("click", repeatParagraph);
 elements.continueResume.addEventListener("click", continueSavedSession);
 elements.dismissResume.addEventListener("click", dismissSavedSession);
+elements.readPreface.addEventListener("click", () => beginReading("preface_segment"));
+elements.beginBook.addEventListener("click", () => beginReading("main_text_segment"));
 elements.rate.addEventListener("input", () => {
   elements.rateValue.textContent = `${Number(elements.rate.value).toFixed(1).replace(".0", "")}×`;
   if (state.audio) state.audio.playbackRate = Number(elements.rate.value);

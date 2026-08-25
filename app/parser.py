@@ -36,6 +36,16 @@ _SPACE_RE = re.compile(r"\s+")
 _PAGE_NUMBER_RE = re.compile(r"^(?:\d{1,4}|[ivxlcdm]{1,8})$", re.IGNORECASE)
 _SENTENCE_SEGMENTER = pysbd.Segmenter(language="en", clean=False)
 
+_FRONT_MATTER_TITLES = re.compile(
+    r"^(?:title page|copyright|dedication|timeline(?: of .*)?|also by|about the author)$"
+)
+_PREFACE_TITLES = re.compile(r"^(?:(?:the )?author'?s )?(?:preface|foreword)\b")
+_INTRODUCTION_TITLES = re.compile(r"^(?:general )?introduction\b")
+_BACK_MATTER_TITLES = re.compile(
+    r"^(?:notes|endnotes|bibliograph(?:y|ies)|references|acknowledg(?:e)?ments?|"
+    r"image credits?|index|glossary)\b"
+)
+
 
 @dataclass(frozen=True)
 class LayoutLine:
@@ -50,6 +60,28 @@ class LayoutLine:
 def _clean_text(value: str) -> str:
     value = value.replace("\u00ad", "").replace("\ufeff", "")
     return _SPACE_RE.sub(" ", value).strip()
+
+
+def _section_reading_metadata(title: str) -> tuple[str, bool]:
+    """Classify an outline title for normal, continuous narration.
+
+    Unknown section titles remain eligible so an unusual publisher outline
+    cannot silently hide book content. More specific block-level exclusions
+    are added only when a golden fixture proves the rule.
+    """
+
+    normalized = re.sub(r"[^a-z0-9]+", " ", _clean_text(title).casefold()).strip()
+    if re.fullmatch(r"(?:table of )?contents", normalized):
+        return "contents", False
+    if _FRONT_MATTER_TITLES.fullmatch(normalized):
+        return "front_matter", False
+    if _PREFACE_TITLES.match(normalized):
+        return "preface", True
+    if _INTRODUCTION_TITLES.match(normalized):
+        return "introduction", True
+    if _BACK_MATTER_TITLES.match(normalized):
+        return "back_matter", False
+    return "main", True
 
 
 def _outline_sections(reader: PdfReader) -> list[dict[str, Any]]:
@@ -68,12 +100,15 @@ def _outline_sections(reader: PdfReader) -> list[dict[str, Any]]:
                 continue
             title = _clean_text(str(item.title))
             if title:
+                reading_role, narration_eligible = _section_reading_metadata(title)
                 sections.append(
                     {
                         "index": len(sections),
                         "title": title,
                         "level": depth,
                         "page_start": page_index + 1,
+                        "reading_role": reading_role,
+                        "narration_eligible": narration_eligible,
                     }
                 )
 
@@ -195,6 +230,45 @@ def _section_for_page(sections: list[dict[str, Any]], page_number: int) -> int |
     return active
 
 
+def _reading_order(
+    sections: list[dict[str, Any]], segments: list[dict[str, Any]]
+) -> dict[str, int | None]:
+    """Return stable starting cursors without changing physical segment indexes."""
+
+    def first_section_segment(role: str, *, prefer_nested: bool = False) -> int | None:
+        candidates = [
+            section for section in sections if section.get("reading_role") == role
+        ]
+        if prefer_nested:
+            nested = [section for section in candidates if int(section.get("level", 0)) > 0]
+            if nested:
+                candidates = nested
+        for section in candidates:
+            value = section.get("segment_start")
+            if isinstance(value, int):
+                return value
+        return None
+
+    first_eligible = next(
+        (
+            int(segment["index"])
+            for segment in segments
+            if segment.get("narration_eligible", True)
+        ),
+        None,
+    )
+    main_text = first_section_segment("main", prefer_nested=True)
+    if main_text is None and not sections:
+        main_text = first_eligible
+
+    return {
+        "first_eligible_segment": first_eligible,
+        "preface_segment": first_section_segment("preface"),
+        "introduction_segment": first_section_segment("introduction"),
+        "main_text_segment": main_text,
+    }
+
+
 def extract_book(
     pdf_path: str | Path,
     *,
@@ -228,6 +302,12 @@ def extract_book(
             page_paragraph_start = len(paragraphs)
             page_segment_start = len(segments)
             section_index = _section_for_page(sections, page_number)
+            if section_index is None:
+                reading_role, narration_eligible = "main", True
+            else:
+                section = sections[section_index]
+                reading_role = str(section["reading_role"])
+                narration_eligible = bool(section["narration_eligible"])
 
             for text in _lines_to_paragraphs(_layout_lines(page)):
                 paragraph_index = len(paragraphs)
@@ -239,6 +319,8 @@ def extract_book(
                             "page": page_number,
                             "section": section_index,
                             "paragraph": paragraph_index,
+                            "reading_role": reading_role,
+                            "narration_eligible": narration_eligible,
                             "text": sentence,
                         }
                     )
@@ -249,6 +331,8 @@ def extract_book(
                         "section": section_index,
                         "segment_start": sentence_start,
                         "segment_end": len(segments) - 1,
+                        "reading_role": reading_role,
+                        "narration_eligible": narration_eligible,
                         "text": text,
                     }
                 )
@@ -275,6 +359,9 @@ def extract_book(
         section["segment_end"] = matching[-1] if matching else None
 
     word_count = sum(len(segment["text"].split()) for segment in segments)
+    narration_segment_count = sum(
+        bool(segment["narration_eligible"]) for segment in segments
+    )
     return {
         "schema_version": 1,
         "id": book_id or digest[:16],
@@ -287,6 +374,8 @@ def extract_book(
         "section_count": len(sections),
         "paragraph_count": len(paragraphs),
         "segment_count": len(segments),
+        "narration_segment_count": narration_segment_count,
+        "reading_order": _reading_order(sections, segments),
         "sections": sections,
         "pages": pages,
         "paragraphs": paragraphs,
@@ -301,4 +390,3 @@ def write_book_json(book: dict[str, Any], destination: str | Path) -> Path:
     temporary.write_text(json.dumps(book, ensure_ascii=False), encoding="utf-8")
     temporary.replace(output)
     return output
-
