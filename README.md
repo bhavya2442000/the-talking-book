@@ -27,17 +27,10 @@ The quality gate is:
 
 ## Project documents
 
-- [Current project status](STATUS.md) — compact snapshot of what is verified and
-  the exact next task.
-- [Task board](TASKS.md) — ownership, dependencies, and parallel-work rules.
-- [Product vision](VISION.md) — the complete voice-first reader experience and
-  final-product principles.
-- [Incremental implementation plan](IMPLEMENTATION_PLAN.md) — the cumulative,
-  phase-by-phase roadmap from the current reader to that vision.
-- [Task handoff template](docs/TASK_HANDOFF_TEMPLATE.md) — the required
-  completion and next-step format for agents.
+- [Current project focus](PROJECT.md) — the scope, verified baseline, extraction
+  plan, first-session milestone, and exact next task.
 - [Manual smoke checklist](docs/SMOKE_TEST.md) — the repeatable browser and
-  OpenAI narration checks used before each roadmap phase is considered stable.
+  OpenAI narration checks used for user-facing changes.
 
 ## Current progress
 
@@ -210,8 +203,7 @@ narration, progress persistence, and companion questions.
 ```text
 Talking_book/
 ├── AGENTS.md                  Agent and engineering instructions
-├── STATUS.md                  Current verified state and exact next task
-├── TASKS.md                   Coordination board and file ownership rules
+├── PROJECT.md                 Current scope, plan, status, and next task
 ├── app/
 │   ├── main.py                 FastAPI routes and OpenAI integrations
 │   ├── parser.py               Page-aware PDF extraction pipeline
@@ -229,8 +221,7 @@ Talking_book/
 │   ├── test_parser.py          Layout and sentence parsing tests
 │   └── playback_core.test.mjs  Playback helper tests
 ├── docs/
-│   ├── SMOKE_TEST.md            Manual regression checklist
-│   └── TASK_HANDOFF_TEMPLATE.md Agent completion template
+│   └── SMOKE_TEST.md            Manual regression checklist
 ├── data/                       Local generated data; ignored by Git
 ├── .env.example               Safe configuration template
 ├── pyproject.toml              Pytest configuration
