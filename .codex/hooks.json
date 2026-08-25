@@ -1,0 +1,17 @@
+{
+  "description": "Talking Book project quality guardrails.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/quality_gate.py\"",
+            "timeout": 120,
+            "statusMessage": "Running Talking Book quality gate"
+          }
+        ]
+      }
+    ]
+  }
+}
