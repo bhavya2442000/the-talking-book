@@ -166,6 +166,32 @@ textarea:focus, select:focus { outline: 3px solid rgba(216, 90, 55, .16); border
 .answer.loading { color: var(--muted); }
 .api-notice { margin-top: 22px; padding: 13px; border-radius: 10px; color: #6b581b; background: #fff2bf; font-size: 13px; line-height: 1.45; }
 
+.voice-card { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line); }
+.voice-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.voice-card-heading h2 { margin-bottom: 10px; font-size: 22px; }
+.voice-status { flex: none; padding: 5px 8px; border-radius: 999px; color: var(--muted); background: #ece9e0; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.voice-status[data-state="requesting"], .voice-status[data-state="connecting"] { color: #745d12; background: #fff0b8; }
+.voice-status[data-state="listening"] { color: #17623e; background: #d9f4e5; }
+.voice-status[data-state="muted"] { color: #5e6562; background: #e6e9e7; }
+.voice-status[data-state="error"] { color: #9c321c; background: #ffe0d9; }
+.voice-message { min-height: 38px; margin: 0 0 12px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.voice-actions { display: grid; grid-template-columns: 1fr auto auto; gap: 7px; }
+.voice-actions .primary-button { min-height: 38px; padding: 0 14px; font-size: 13px; }
+.voice-button { min-height: 38px; padding: 0 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: var(--surface); font-size: 12px; font-weight: 700; }
+.voice-button.danger { color: var(--accent-dark); }
+.voice-button:disabled { cursor: not-allowed; opacity: .42; }
+.voice-memory-heading { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.voice-memory-heading .text-button { min-height: 28px; padding: 0 7px; color: var(--muted); }
+.voice-memory-heading .text-button:disabled { cursor: not-allowed; opacity: .4; }
+.voice-transcript { max-height: 230px; overflow: auto; display: grid; gap: 8px; margin-top: 7px; }
+.voice-transcript-empty { margin: 8px 0; color: var(--muted); font-size: 12px; }
+.voice-turn { padding: 9px 10px; border-radius: 10px; background: rgba(255, 255, 255, .72); }
+.voice-turn.assistant { border-left: 2px solid var(--forest); }
+.voice-turn.user { border-left: 2px solid var(--accent); }
+.voice-turn strong { display: block; margin-bottom: 3px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.voice-turn p { margin: 0; font-size: 12px; line-height: 1.45; }
+.voice-privacy { margin: 14px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+
 .player {
   position: fixed;
   z-index: 30;

@@ -2,6 +2,7 @@ from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
 from fastapi.testclient import TestClient
 
 import app.main as main
@@ -135,6 +136,7 @@ def test_book_endpoints_and_no_key_explanation(monkeypatch, tmp_path: Path) -> N
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
     assert client.get("/api/health").json() == {"status": "ok", "books": 1}
+    assert client.get("/api/config").json()["realtime_configured"] is False
     assert client.get("/api/books").json()[0]["id"] == "test-book"
     assert client.get("/api/books/test-book").json()["segment_count"] == 2
     response = client.post(
@@ -143,6 +145,11 @@ def test_book_endpoints_and_no_key_explanation(monkeypatch, tmp_path: Path) -> N
     )
     assert response.status_code == 503
     assert "OPENAI_API_KEY" in response.json()["detail"]
+    realtime = client.post(
+        "/api/books/test-book/realtime",
+        json={"sdp": "v=0", "segment_index": 0, "recent_turns": []},
+    )
+    assert realtime.status_code == 503
 
 
 def test_explanation_is_grounded_in_current_page(monkeypatch, tmp_path: Path) -> None:
@@ -220,8 +227,69 @@ def test_invalid_book_and_segment_identifiers_return_404(monkeypatch, tmp_path: 
         "/api/books/test-book/speech",
         json={"segment_index": 99, "voice": "alloy"},
     )
+    realtime = client.post(
+        "/api/books/test-book/realtime",
+        json={"sdp": "v=0", "segment_index": 99, "recent_turns": []},
+    )
     assert explanation.status_code == 404
     assert narration.status_code == 404
+    assert realtime.status_code == 404
+
+
+def test_realtime_handoff_is_grounded_and_returns_answer_sdp(monkeypatch, tmp_path: Path) -> None:
+    client = configure_store(monkeypatch, tmp_path, context_book())
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_REALTIME_MODEL", "realtime-test-model")
+    monkeypatch.setenv("OPENAI_REALTIME_VOICE", "marin")
+    calls = []
+
+    async def fake_offer(sdp, session):
+        calls.append((sdp, session))
+        return httpx.Response(201, text="v=0\r\na=answer")
+
+    monkeypatch.setattr(main, "_post_realtime_offer", fake_offer)
+    response = client.post(
+        "/api/books/test-book/realtime",
+        json={
+            "sdp": "v=0\r\na=offer",
+            "segment_index": 1,
+            "recent_turns": [
+                {"role": "user", "text": "Who is speaking?"},
+                {"role": "assistant", "text": "The excerpt does not name them."},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/sdp")
+    assert response.text == "v=0\r\na=answer"
+    offer, session = calls[0]
+    assert offer == "v=0\r\na=offer"
+    assert session["type"] == "realtime"
+    assert session["model"] == "realtime-test-model"
+    assert session["audio"]["output"]["voice"] == "marin"
+    assert session["audio"]["input"]["turn_detection"]["create_response"] is True
+    assert "[PDF page 1]" in session["instructions"]
+    assert "[PDF page 2]" in session["instructions"]
+    assert "[PDF page 3]" in session["instructions"]
+    assert "Who is speaking?" in session["instructions"]
+    assert "untrusted reference data" in session["instructions"]
+
+
+def test_realtime_handoff_maps_upstream_failures(monkeypatch, tmp_path: Path) -> None:
+    client = configure_store(monkeypatch, tmp_path)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    async def rejected_offer(sdp, session):
+        return httpx.Response(429, text="rate limited")
+
+    monkeypatch.setattr(main, "_post_realtime_offer", rejected_offer)
+    response = client.post(
+        "/api/books/test-book/realtime",
+        json={"sdp": "v=0", "segment_index": 0, "recent_turns": []},
+    )
+    assert response.status_code == 502
+    assert "(429)" in response.json()["detail"]
 
 
 def test_upload_rejects_oversized_pdf(monkeypatch, tmp_path: Path) -> None:

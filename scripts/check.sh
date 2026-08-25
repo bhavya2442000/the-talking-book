@@ -11,7 +11,7 @@ echo "== Python tests =="
 "$PYTHON_BIN" -m pytest -q
 
 echo "== JavaScript tests =="
-"$NODE_BIN" --test tests/playback_core.test.mjs
+"$NODE_BIN" --test tests/*.test.mjs
 
 echo "== JavaScript syntax =="
 "$NODE_BIN" --check static/app.js

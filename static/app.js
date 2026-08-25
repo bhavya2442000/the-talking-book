@@ -6,6 +6,14 @@ import {
   paragraphStartSegment,
   upcomingSegmentIndices,
 } from "./playback_core.mjs?v=2";
+import {
+  VOICE_STATES,
+  appendVoiceTurn,
+  completedVoiceTurn,
+  sanitizeVoiceTurns,
+  transitionVoiceState,
+  voiceMemoryKey,
+} from "./voice_session_core.mjs?v=1";
 
 const state = {
   config: null,
@@ -20,6 +28,15 @@ const state = {
   audioCache: new Map(),
   audioRequests: new Map(),
   resumeSegmentIndex: null,
+  voice: {
+    status: VOICE_STATES.DISCONNECTED,
+    message: "Ready when you are.",
+    token: 0,
+    peerConnection: null,
+    dataChannel: null,
+    mediaStream: null,
+    memory: [],
+  },
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -62,6 +79,14 @@ const elements = {
   resumeText: $("#resumeText"),
   continueResume: $("#continueResume"),
   dismissResume: $("#dismissResume"),
+  voiceStatus: $("#voiceStatus"),
+  voiceMessage: $("#voiceMessage"),
+  startVoiceButton: $("#startVoiceButton"),
+  muteVoiceButton: $("#muteVoiceButton"),
+  endVoiceButton: $("#endVoiceButton"),
+  clearVoiceMemoryButton: $("#clearVoiceMemoryButton"),
+  voiceTranscript: $("#voiceTranscript"),
+  assistantAudio: $("#assistantAudio"),
 };
 
 async function api(path, options = {}) {
@@ -157,10 +182,12 @@ function renderLibrary() {
 }
 
 async function loadBook(bookId) {
+  stopVoiceSession();
   stopPlayback();
   clearAudioQueue();
   elements.uploadStatus.textContent = "Loading book…";
   state.book = await api(`/api/books/${bookId}`);
+  loadVoiceMemory(bookId);
   const saved = readSavedSession(bookId);
   applySavedSettings(saved);
   elements.bookSelect.value = bookId;
@@ -223,12 +250,14 @@ function renderSection(sectionIndex) {
       span.textContent = `${segment.text}${index < paragraph.segment_end ? " " : ""}`;
       span.tabIndex = 0;
       span.addEventListener("click", () => {
+        stopVoiceSession();
         stopPlayback(false);
         selectSegment(index);
       });
       span.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
+          stopVoiceSession();
           stopPlayback(false);
           selectSegment(index);
         }
@@ -454,6 +483,7 @@ async function speakCurrent() {
 }
 
 function playOrContinue() {
+  if (state.voice.status !== VOICE_STATES.DISCONNECTED) stopVoiceSession();
   if (state.status === "paused") {
     if (state.audio) {
       state.audio.play()
@@ -553,6 +583,268 @@ async function askQuestion(event) {
   }
 }
 
+const voiceLabels = {
+  disconnected: "Ready",
+  requesting: "Permission",
+  connecting: "Connecting",
+  listening: "Live",
+  muted: "Muted",
+  stopping: "Ending",
+  error: "Error",
+};
+
+function renderVoiceState() {
+  const status = state.voice.status;
+  const active = [
+    VOICE_STATES.REQUESTING,
+    VOICE_STATES.CONNECTING,
+    VOICE_STATES.LISTENING,
+    VOICE_STATES.MUTED,
+    VOICE_STATES.STOPPING,
+  ].includes(status);
+  const configured = Boolean(state.config?.realtime_configured);
+  elements.voiceStatus.textContent = voiceLabels[status] || status;
+  elements.voiceStatus.dataset.state = status;
+  elements.voiceMessage.textContent = state.voice.message;
+  elements.startVoiceButton.disabled = active || !configured || !state.book;
+  elements.startVoiceButton.textContent = status === VOICE_STATES.ERROR ? "Try again" : "Start talking";
+  elements.muteVoiceButton.disabled = ![
+    VOICE_STATES.LISTENING,
+    VOICE_STATES.MUTED,
+  ].includes(status);
+  elements.muteVoiceButton.textContent = status === VOICE_STATES.MUTED ? "Unmute" : "Mute";
+  elements.endVoiceButton.disabled = !active;
+  elements.clearVoiceMemoryButton.disabled = !state.voice.memory.length;
+}
+
+function applyVoiceEvent(event, message) {
+  state.voice.status = transitionVoiceState(state.voice.status, event);
+  if (message) state.voice.message = message;
+  renderVoiceState();
+}
+
+function setVoiceMessage(message) {
+  state.voice.message = message;
+  renderVoiceState();
+}
+
+function loadVoiceMemory(bookId) {
+  try {
+    state.voice.memory = sanitizeVoiceTurns(
+      JSON.parse(localStorage.getItem(voiceMemoryKey(bookId))) || [],
+    );
+  } catch {
+    state.voice.memory = [];
+  }
+  renderVoiceTranscript();
+  renderVoiceState();
+}
+
+function saveVoiceMemory() {
+  if (!state.book) return;
+  try {
+    localStorage.setItem(
+      voiceMemoryKey(state.book.id),
+      JSON.stringify(state.voice.memory),
+    );
+  } catch {
+    // A voice session still works when local storage is unavailable.
+  }
+}
+
+function renderVoiceTranscript() {
+  elements.voiceTranscript.replaceChildren();
+  if (!state.voice.memory.length) {
+    const empty = document.createElement("p");
+    empty.className = "voice-transcript-empty";
+    empty.textContent = "Your recent voice turns will appear here.";
+    elements.voiceTranscript.append(empty);
+    return;
+  }
+  for (const turn of state.voice.memory) {
+    const item = document.createElement("div");
+    item.className = `voice-turn ${turn.role}`;
+    const role = document.createElement("strong");
+    role.textContent = turn.role === "user" ? "You" : "Book companion";
+    const text = document.createElement("p");
+    text.textContent = turn.text;
+    item.append(role, text);
+    elements.voiceTranscript.append(item);
+  }
+  elements.voiceTranscript.scrollTop = elements.voiceTranscript.scrollHeight;
+}
+
+function rememberVoiceTurn(turn) {
+  if (!turn?.text) return;
+  state.voice.memory = appendVoiceTurn(state.voice.memory, turn);
+  saveVoiceMemory();
+  renderVoiceTranscript();
+  renderVoiceState();
+}
+
+function handleRealtimeEvent(event) {
+  const completed = completedVoiceTurn(event);
+  if (completed?.text) rememberVoiceTurn(completed);
+
+  if (event.type === "input_audio_buffer.speech_started") {
+    setVoiceMessage("Listening to you…");
+  } else if (event.type === "input_audio_buffer.speech_stopped") {
+    setVoiceMessage("Thinking about that passage…");
+  } else if (event.type === "response.output_audio_transcript.delta") {
+    setVoiceMessage("Book companion is speaking…");
+  } else if (event.type === "response.done") {
+    setVoiceMessage(
+      state.voice.status === VOICE_STATES.MUTED
+        ? "Microphone muted."
+        : "Listening. Ask about the current passage.",
+    );
+  } else if (event.type === "error") {
+    failVoiceSession(event.error?.message || "The voice session reported an error.");
+  }
+}
+
+function releaseVoiceResources() {
+  const { dataChannel, peerConnection, mediaStream } = state.voice;
+  if (dataChannel) {
+    dataChannel.onopen = null;
+    dataChannel.onmessage = null;
+    dataChannel.onerror = null;
+    dataChannel.close();
+  }
+  if (peerConnection) {
+    peerConnection.ontrack = null;
+    peerConnection.onconnectionstatechange = null;
+    peerConnection.close();
+  }
+  mediaStream?.getTracks().forEach((track) => track.stop());
+  elements.assistantAudio.pause();
+  elements.assistantAudio.srcObject = null;
+  state.voice.dataChannel = null;
+  state.voice.peerConnection = null;
+  state.voice.mediaStream = null;
+}
+
+function failVoiceSession(message) {
+  state.voice.token += 1;
+  releaseVoiceResources();
+  applyVoiceEvent("FAIL", message);
+}
+
+async function startVoiceSession() {
+  if (!state.book || !state.config?.realtime_configured) {
+    setVoiceMessage("Add OPENAI_API_KEY to .env, restart, and try again.");
+    return;
+  }
+  if (![VOICE_STATES.DISCONNECTED, VOICE_STATES.ERROR].includes(state.voice.status)) return;
+  if (!navigator.mediaDevices?.getUserMedia || !("RTCPeerConnection" in window)) {
+    failVoiceSession("This browser does not support microphone WebRTC sessions.");
+    return;
+  }
+
+  stopPlayback();
+  const token = state.voice.token + 1;
+  state.voice.token = token;
+  applyVoiceEvent("START", "Waiting for microphone permission…");
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+    if (token !== state.voice.token) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    state.voice.mediaStream = stream;
+    applyVoiceEvent("PERMISSION_GRANTED", "Connecting to the book companion…");
+
+    const peerConnection = new RTCPeerConnection();
+    state.voice.peerConnection = peerConnection;
+    peerConnection.ontrack = (event) => {
+      elements.assistantAudio.srcObject = event.streams[0];
+    };
+    peerConnection.onconnectionstatechange = () => {
+      if (peerConnection.connectionState === "failed" && token === state.voice.token) {
+        failVoiceSession("The voice connection failed. Please try again.");
+      }
+    };
+    for (const track of stream.getTracks()) peerConnection.addTrack(track, stream);
+
+    const dataChannel = peerConnection.createDataChannel("oai-events");
+    state.voice.dataChannel = dataChannel;
+    dataChannel.onmessage = (message) => {
+      try {
+        handleRealtimeEvent(JSON.parse(message.data));
+      } catch {
+        // Ignore non-JSON diagnostic messages without ending a healthy audio session.
+      }
+    };
+    dataChannel.onerror = () => {
+      if (token === state.voice.token) failVoiceSession("The voice event channel failed.");
+    };
+    dataChannel.onopen = () => {
+      if (token !== state.voice.token) return;
+      applyVoiceEvent("CONNECTED", "Listening. Ask about the current passage.");
+      dataChannel.send(JSON.stringify({ type: "response.create" }));
+    };
+
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    const answerSdp = await api(`/api/books/${state.book.id}/realtime`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sdp: offer.sdp,
+        segment_index: state.segmentIndex,
+        recent_turns: state.voice.memory,
+      }),
+    });
+    if (token !== state.voice.token) return;
+    await peerConnection.setRemoteDescription({ type: "answer", sdp: answerSdp });
+  } catch (error) {
+    if (token !== state.voice.token) return;
+    const message = error.name === "NotAllowedError"
+      ? "Microphone permission was not granted. Allow it and try again."
+      : error.message || "Could not start the voice session.";
+    failVoiceSession(message);
+  }
+}
+
+function toggleVoiceMute() {
+  if (![VOICE_STATES.LISTENING, VOICE_STATES.MUTED].includes(state.voice.status)) return;
+  const shouldMute = state.voice.status === VOICE_STATES.LISTENING;
+  state.voice.mediaStream?.getAudioTracks().forEach((track) => {
+    track.enabled = !shouldMute;
+  });
+  applyVoiceEvent(
+    shouldMute ? "MUTE" : "UNMUTE",
+    shouldMute ? "Microphone muted." : "Listening. Ask about the current passage.",
+  );
+}
+
+function stopVoiceSession() {
+  state.voice.token += 1;
+  if (state.voice.status !== VOICE_STATES.DISCONNECTED) {
+    applyVoiceEvent("STOP", "Ending the voice session…");
+  }
+  releaseVoiceResources();
+  if (state.voice.status !== VOICE_STATES.DISCONNECTED) {
+    applyVoiceEvent("STOPPED", "Session ended. Narration remains stopped.");
+  } else {
+    renderVoiceState();
+  }
+}
+
+function clearVoiceMemory() {
+  state.voice.memory = [];
+  if (state.book) localStorage.removeItem(voiceMemoryKey(state.book.id));
+  renderVoiceTranscript();
+  renderVoiceState();
+}
+
 elements.pdfInput.addEventListener("change", uploadSelectedFile);
 elements.bookSelect.addEventListener("change", (event) => loadBook(event.target.value));
 elements.playButton.addEventListener("click", playOrContinue);
@@ -574,10 +866,17 @@ elements.cloudVoice.addEventListener("change", () => {
   if (wasActive) speakCurrent();
 });
 elements.questionForm.addEventListener("submit", askQuestion);
+elements.startVoiceButton.addEventListener("click", startVoiceSession);
+elements.muteVoiceButton.addEventListener("click", toggleVoiceMute);
+elements.endVoiceButton.addEventListener("click", stopVoiceSession);
+elements.clearVoiceMemoryButton.addEventListener("click", clearVoiceMemory);
 window.addEventListener("beforeunload", () => {
   saveSession();
+  releaseVoiceResources();
   cancelOutputs(true);
   clearAudioQueue();
 });
 
+renderVoiceState();
+renderVoiceTranscript();
 initialize();
