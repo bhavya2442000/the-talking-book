@@ -1,3 +1,4 @@
+from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -69,12 +70,62 @@ def sample_book() -> dict:
     }
 
 
-def configure_store(monkeypatch, tmp_path: Path) -> TestClient:
+def context_book() -> dict:
+    book = sample_book()
+    book.update(
+        page_count=3,
+        word_count=16,
+        paragraph_count=3,
+        segment_count=3,
+    )
+    book["sections"][0].update(page_end=3, segment_end=2)
+    book["pages"] = [
+        {
+            "number": index + 1,
+            "paragraph_start": index,
+            "paragraph_end": index,
+            "segment_start": index,
+            "segment_end": index,
+        }
+        for index in range(3)
+    ]
+    texts = [
+        "This is the opening passage.",
+        "This is the middle passage.",
+        "This is the closing passage.",
+    ]
+    book["paragraphs"] = [
+        {
+            "index": index,
+            "page": index + 1,
+            "section": 0,
+            "segment_start": index,
+            "segment_end": index,
+            "text": text,
+        }
+        for index, text in enumerate(texts)
+    ]
+    book["segments"] = [
+        {
+            "index": index,
+            "page": index + 1,
+            "section": 0,
+            "paragraph": index,
+            "text": text,
+        }
+        for index, text in enumerate(texts)
+    ]
+    return book
+
+
+def configure_store(monkeypatch, tmp_path: Path, book: dict | None = None) -> TestClient:
     store = BookStore(tmp_path / "books")
-    store.save(sample_book())
+    store.save(book or sample_book())
     monkeypatch.setattr(main, "store", store)
     monkeypatch.setattr(main, "AUDIO_DIR", tmp_path / "audio")
+    monkeypatch.setattr(main, "UPLOAD_DIR", tmp_path / "uploads")
     main.AUDIO_DIR.mkdir()
+    main.UPLOAD_DIR.mkdir()
     main._openai_client.cache_clear()
     return TestClient(main.app)
 
@@ -155,3 +206,142 @@ def test_upload_rejects_non_pdf(monkeypatch, tmp_path: Path) -> None:
     )
     assert response.status_code == 415
 
+
+def test_invalid_book_and_segment_identifiers_return_404(monkeypatch, tmp_path: Path) -> None:
+    client = configure_store(monkeypatch, tmp_path)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    assert client.get("/api/books/missing-book").status_code == 404
+    explanation = client.post(
+        "/api/books/test-book/explain",
+        json={"segment_index": 99, "question": "Explain this."},
+    )
+    narration = client.post(
+        "/api/books/test-book/speech",
+        json={"segment_index": 99, "voice": "alloy"},
+    )
+    assert explanation.status_code == 404
+    assert narration.status_code == 404
+
+
+def test_upload_rejects_oversized_pdf(monkeypatch, tmp_path: Path) -> None:
+    client = configure_store(monkeypatch, tmp_path)
+    monkeypatch.setattr(main, "MAX_UPLOAD_BYTES", 8)
+
+    response = client.post(
+        "/api/books",
+        files={"file": ("large.pdf", b"%PDF-1234", "application/pdf")},
+    )
+    assert response.status_code == 413
+
+
+def test_upload_rejects_pdf_extension_with_invalid_signature(monkeypatch, tmp_path: Path) -> None:
+    client = configure_store(monkeypatch, tmp_path)
+
+    response = client.post(
+        "/api/books",
+        files={"file": ("fake.pdf", b"definitely not a pdf", "application/pdf")},
+    )
+    assert response.status_code == 415
+
+
+def test_duplicate_upload_returns_existing_book_without_extraction(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    payload = b"%PDF-existing-book"
+    book = sample_book()
+    book["source_sha256"] = sha256(payload).hexdigest()
+    client = configure_store(monkeypatch, tmp_path, book)
+
+    def unexpected_extraction(*args, **kwargs):
+        raise AssertionError("duplicate PDF should not be extracted again")
+
+    monkeypatch.setattr(main, "extract_book", unexpected_extraction)
+    response = client.post(
+        "/api/books",
+        files={"file": ("duplicate.pdf", payload, "application/pdf")},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["id"] == "test-book"
+    assert list(main.UPLOAD_DIR.iterdir()) == []
+
+
+def test_explanation_context_is_bounded_at_book_edges(monkeypatch, tmp_path: Path) -> None:
+    client = configure_store(monkeypatch, tmp_path, context_book())
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    calls = []
+
+    class FakeResponses:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            return SimpleNamespace(output_text="A bounded explanation.")
+
+    monkeypatch.setattr(
+        main,
+        "_openai_client",
+        lambda: SimpleNamespace(responses=FakeResponses()),
+    )
+
+    first = client.post(
+        "/api/books/test-book/explain",
+        json={"segment_index": 0, "question": "Explain the opening."},
+    )
+    last = client.post(
+        "/api/books/test-book/explain",
+        json={"segment_index": 2, "question": "Explain the ending."},
+    )
+
+    assert first.status_code == 200
+    assert last.status_code == 200
+    assert "[PDF page 1]" in calls[0]["input"]
+    assert "[PDF page 2]" in calls[0]["input"]
+    assert "closing passage" not in calls[0]["input"]
+    assert "opening passage" not in calls[1]["input"]
+    assert "[PDF page 2]" in calls[1]["input"]
+    assert "[PDF page 3]" in calls[1]["input"]
+
+
+def test_audio_cache_separates_models_and_voices(monkeypatch, tmp_path: Path) -> None:
+    client = configure_store(monkeypatch, tmp_path)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_TTS_MODEL", "tts-model-a")
+    calls = []
+
+    class FakeSpeech:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            return SimpleNamespace(content=f"audio-{len(calls)}".encode())
+
+    monkeypatch.setattr(
+        main,
+        "_openai_client",
+        lambda: SimpleNamespace(audio=SimpleNamespace(speech=FakeSpeech())),
+    )
+
+    first_voice = client.post(
+        "/api/books/test-book/speech",
+        json={"segment_index": 0, "voice": "alloy"},
+    )
+    second_voice = client.post(
+        "/api/books/test-book/speech",
+        json={"segment_index": 0, "voice": "echo"},
+    )
+    monkeypatch.setenv("OPENAI_TTS_MODEL", "tts-model-b")
+    second_model = client.post(
+        "/api/books/test-book/speech",
+        json={"segment_index": 0, "voice": "alloy"},
+    )
+
+    assert [response.headers["x-audio-cache"] for response in (
+        first_voice,
+        second_voice,
+        second_model,
+    )] == ["MISS", "MISS", "MISS"]
+    assert [(call["model"], call["voice"]) for call in calls] == [
+        ("tts-model-a", "alloy"),
+        ("tts-model-a", "echo"),
+        ("tts-model-b", "alloy"),
+    ]
+    assert len(list(main.AUDIO_DIR.glob("*.mp3"))) == 3

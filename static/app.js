@@ -1,9 +1,11 @@
 import {
   chapterProgressPercent,
   clampSegmentIndex,
+  isCurrentPlaybackToken,
   isValidSegmentIndex,
+  paragraphStartSegment,
   upcomingSegmentIndices,
-} from "./playback_core.mjs?v=1";
+} from "./playback_core.mjs?v=2";
 
 const state = {
   config: null,
@@ -397,7 +399,7 @@ async function speakCurrent() {
   const token = state.token;
 
   const finished = () => {
-    if (token !== state.token || state.status !== "playing") return;
+    if (!isCurrentPlaybackToken(token, state.token) || state.status !== "playing") return;
     if (state.segmentIndex + 1 >= state.book.segments.length) {
       setPlaybackStatus("stopped", "Finished");
       return;
@@ -410,19 +412,21 @@ async function speakCurrent() {
     setPlaybackStatus("loading");
     try {
       const audioUrl = await getCloudAudio(state.segmentIndex);
-      if (token !== state.token || state.status === "paused") return;
+      if (!isCurrentPlaybackToken(token, state.token) || state.status === "paused") return;
       state.audio = new Audio(audioUrl);
       state.audio.playbackRate = Number(elements.rate.value);
       state.audio.onended = finished;
       state.audio.onerror = () => {
-        if (token === state.token) setPlaybackStatus("error", "Audio error");
+        if (isCurrentPlaybackToken(token, state.token)) {
+          setPlaybackStatus("error", "Audio error");
+        }
       };
       await state.audio.play();
-      if (token !== state.token) return;
+      if (!isCurrentPlaybackToken(token, state.token)) return;
       setPlaybackStatus("playing");
       prefetchUpcoming(state.segmentIndex);
     } catch (error) {
-      if (error.name !== "AbortError" && token === state.token) {
+      if (error.name !== "AbortError" && isCurrentPlaybackToken(token, state.token)) {
         elements.uploadStatus.textContent = error.message;
         setPlaybackStatus("error", "Narration failed");
       }
@@ -440,7 +444,7 @@ async function speakCurrent() {
   utterance.rate = Number(elements.rate.value);
   utterance.onend = finished;
   utterance.onerror = (event) => {
-    if (event.error !== "canceled" && token === state.token) {
+    if (event.error !== "canceled" && isCurrentPlaybackToken(token, state.token)) {
       elements.uploadStatus.textContent = `Narration error: ${event.error}`;
       setPlaybackStatus("error", "Narration failed");
     }
@@ -488,8 +492,8 @@ function moveBySentence(offset) {
 function repeatParagraph() {
   if (!state.book) return;
   const segment = state.book.segments[state.segmentIndex];
-  const paragraph = state.book.paragraphs[segment.paragraph];
-  if (paragraph) selectSegment(paragraph.segment_start);
+  const start = paragraphStartSegment(segment, state.book.paragraphs, state.segmentIndex);
+  selectSegment(start);
   speakCurrent();
 }
 
