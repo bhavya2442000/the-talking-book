@@ -17,6 +17,14 @@ upload, microphone and connection state, the current page and passage, a
 transcript, notes, highlights, citations, and dependable manual controls. It is
 a quiet supporting surface rather than the center of the experience.
 
+## Current product slice
+
+The final vision is intentionally broader than the first product slice. For
+now, build only for one local reader and one book. The immediate experience is
+trustworthy extraction followed by a dependable first reading session. Multiple
+books, accounts, synchronization, images, outside research, and a full live
+voice loop are later capabilities; they must not complicate this first slice.
+
 ## Product principles
 
 ### Voice is the primary interaction
@@ -100,6 +108,12 @@ prepares the book’s title, author, pages, chapters, paragraphs, sentences, and
 reading order. Later versions also identify meaningful figures, diagrams, maps,
 tables, and graphs.
 
+The table of contents is prepared as navigation metadata, not as narration. The
+opening also excludes title-page details, copyright pages, indexes, page-number
+fragments, and other non-reading material. If the book contains a preface,
+foreword, or introduction, the assistant recognizes it as optional front
+matter and offers it to the reader before beginning the main text.
+
 Preparation is visible and recoverable. If a page cannot be read correctly,
 the reader sees a useful explanation instead of a silent or misleading result.
 Once ready, the book becomes part of the reader’s personal library.
@@ -113,6 +127,18 @@ or ends the session, and its state is always visible.
 
 The assistant greets the reader by name. The greeting is brief and useful, not
 ceremonial.
+
+For a first session with one book, it introduces the title and author, then
+offers a simple choice such as:
+
+> This is *Sapiens* by Yuval Noah Harari. I found a preface. Would you like me
+> to read it, or begin the main book?
+
+The assistant starts at the first eligible reading segment, reports its chapter
+and physical PDF page, and never begins by reading the table of contents. Book
+metadata may come from the extracted document; broader context from outside
+the book is a separate, clearly labeled research action rather than part of
+verbatim narration.
 
 With one book, it selects that book automatically. With multiple books, it asks
 which book the reader wants and understands natural references such as:
