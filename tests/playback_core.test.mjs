@@ -2,11 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  adjacentNarrationSegmentIndex,
   chapterProgressPercent,
   clampSegmentIndex,
   isCurrentPlaybackToken,
+  isNarrationEligible,
   isValidSegmentIndex,
   paragraphStartSegment,
+  readingOrderSegmentIndex,
+  upcomingNarrationSegmentIndices,
   upcomingSegmentIndices,
 } from "../static/playback_core.mjs";
 
@@ -48,4 +52,33 @@ test("repeat paragraph resolves its first sentence with a safe fallback", () => 
 test("stale playback events are rejected after token invalidation", () => {
   assert.equal(isCurrentPlaybackToken(12, 12), true);
   assert.equal(isCurrentPlaybackToken(11, 12), false);
+});
+
+test("narration skips segments marked as non-readable", () => {
+  const segments = [
+    { narration_eligible: false },
+    { narration_eligible: true },
+    { narration_eligible: false },
+    {},
+  ];
+  assert.equal(isNarrationEligible(segments[0]), false);
+  assert.equal(isNarrationEligible(segments[1]), true);
+  assert.equal(adjacentNarrationSegmentIndex(1, segments, 1), 3);
+  assert.equal(adjacentNarrationSegmentIndex(3, segments, -1), 1);
+  assert.deepEqual(upcomingNarrationSegmentIndices(0, segments, 2), [1, 3]);
+});
+
+test("reading starts use explicit cursors without treating null as segment zero", () => {
+  const book = {
+    reading_order: {
+      first_eligible_segment: 2,
+      preface_segment: null,
+      main_text_segment: 4,
+    },
+    segments: Array.from({ length: 6 }, (_, index) => ({
+      narration_eligible: index >= 2,
+    })),
+  };
+  assert.equal(readingOrderSegmentIndex(book), 4);
+  assert.equal(readingOrderSegmentIndex(book, "preface_segment"), 2);
 });

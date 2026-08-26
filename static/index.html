@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/static/styles.css?v=4" />
+    <link rel="stylesheet" href="/static/styles.css?v=5" />
   </head>
   <body>
     <header class="topbar">
@@ -54,6 +54,16 @@
             <h1 id="sectionTitle">Select a chapter</h1>
           </div>
           <span id="pageBadge" class="page-badge">PDF page —</span>
+        </div>
+        <div id="startPrompt" class="start-prompt" hidden>
+          <div>
+            <strong id="startTitle">Your book is ready</strong>
+            <span id="startText"></span>
+          </div>
+          <div class="resume-actions">
+            <button id="readPreface" class="text-button" type="button" hidden>Read the preface</button>
+            <button id="beginBook" class="small-button" type="button">Begin reading</button>
+          </div>
         </div>
         <div id="resumePrompt" class="resume-prompt" hidden>
           <div>
@@ -134,6 +144,6 @@
       </div>
     </section>
 
-    <script type="module" src="/static/app.js?v=6"></script>
+    <script type="module" src="/static/app.js?v=7"></script>
   </body>
 </html>

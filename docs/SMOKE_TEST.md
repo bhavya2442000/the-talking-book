@@ -61,6 +61,23 @@ triggered it.
 - [ ] The answer cites a physical PDF page when useful.
 - [ ] A question outside the supplied context is not attributed to the book.
 
+## First session and live voice
+
+- [ ] A new one-book session introduces the extracted title and author.
+- [ ] A detected preface can be chosen, while Begin reading starts at the first
+      eligible main-text passage.
+- [ ] Start talking stops narration before requesting microphone access.
+- [ ] The voice companion greets the reader and answers about the visible
+      passage without inventing unsupported book details.
+- [ ] Speaking while the companion responds interrupts it cleanly.
+- [ ] Mute disables input and Unmute restores it.
+- [ ] Completed user and companion transcripts appear in recent memory, remain
+      bounded, and can be cleared.
+- [ ] End stops microphone use, releases the browser indicator, and does not
+      resume narration.
+- [ ] Starting narration or selecting another passage ends an active voice
+      session so its context cannot become stale.
+
 ## Failure recovery
 
 - [ ] Without an OpenAI key, browser narration and manual reading remain usable.
@@ -79,5 +96,6 @@ Operating system:
 Browser narration: PASS / FAIL / NOT RUN
 OpenAI narration: PASS / FAIL / NOT RUN
 Companion: PASS / FAIL / NOT RUN
+Live voice: PASS / FAIL / NOT RUN
 Notes:
 ```

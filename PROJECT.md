@@ -8,15 +8,17 @@ the manual regression checklist.
 
 Build for one local reader and one book.
 
-The immediate product must do two things well:
+The immediate product must do three things well:
 
 1. Extract a trustworthy narration sequence from a text-based PDF.
 2. Give the reader a clean first session that introduces the book, offers the
    preface, and starts the main text correctly.
+3. Let the reader explicitly start and stop a low-latency voice conversation
+   grounded in the current passage.
 
-Do not add multiple users, multi-book conversation, microphone commands,
-durable notes, images, web research, accounts, synchronization, deployment, or
-other later features during this slice.
+Do not add multiple users, wake-word or spoken playback commands, durable
+server memory, notes, images, web research, accounts, synchronization,
+deployment, or other later features during this slice.
 
 ## Current verified baseline
 
@@ -29,17 +31,29 @@ other later features during this slice.
 - Browser position and narration preferences persist in `localStorage`.
 - Passage-grounded explanations work.
 - The Phase 0 baseline is commit `d5b0df9`.
-- Last verified on 2026-08-25: 14 Python tests and 5 JavaScript tests pass.
+- Outline sections now include additive `reading_role` and
+  `narration_eligible` metadata.
+- Extracted books expose stable first-eligible, preface, introduction, and
+  main-text segment cursors without changing physical segment indexes.
+- Narration navigation now skips sections and segments marked as non-readable.
+- The one-book first-session flow introduces the extracted title and author,
+  offers a preface when one is detected, and otherwise opens the first main
+  chapter.
+- The local Sapiens index has been rebuilt and now starts at Chapter 1 on PDF
+  page 11 instead of reading its contents or other front matter.
+- A WebRTC voice session can be started, muted, stopped, and interrupted while
+  remaining grounded in the current passage and a bounded local transcript.
+- Narration and live microphone audio are mutually exclusive, and stopping a
+  voice session releases its media resources without resuming narration.
+- Last verified on 2026-08-25: 20 Python tests and 11 JavaScript tests pass.
 
 ## Known extraction risks
 
-- Page-number fragments can appear in narration.
-- Running headers and repeated material may be treated as prose.
-- Captions and other non-prose blocks can enter the reading sequence.
+- Captions and other non-prose blocks inside chapters can enter the reading
+  sequence. This is visible in the current Sapiens extraction.
 - Paragraphs split across physical pages are not reliably joined.
-- Table-of-contents material is not explicitly excluded from narration.
-- Preface, foreword, introduction, and first main-text positions are not
-  explicitly classified.
+- Classification relies mainly on publisher outline titles and is not yet a
+  general solution for every PDF layout.
 
 For a product that reads verbatim and cites physical pages, these are release
 blockers rather than cosmetic imperfections.
@@ -102,11 +116,13 @@ encountering navigation or extraction debris.
 
 ## Exact next task
 
-**EXTRACT-1: Build the golden extraction fixture set and add reading-eligibility
-expectations.**
+**VOICE-2: Run one real-key microphone smoke test covering start, interruption,
+mute/unmute, transcript memory, passage grounding, stop, and microphone release.
+Record any failure as a focused automated regression when practical.**
 
-Do not begin the first-session UI until the extraction fixtures expose a stable
-preface start and main-text start.
+Do not add wake words or spoken playback commands until this explicit-session
+flow is reliable. Extraction cleanup remains limited to artifacts that audibly
+disrupt the real opening path.
 
 ## Verification
 
