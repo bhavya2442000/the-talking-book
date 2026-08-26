@@ -45,6 +45,10 @@ deployment, or other later features during this slice.
   remaining grounded in the current passage and a bounded local transcript.
 - Narration and live microphone audio are mutually exclusive, and stopping a
   voice session releases its media resources without resuming narration.
+- A real-key browser smoke test passed on 2026-08-25: microphone permission,
+  grounded page-11 conversation, interruption, mute/unmute, the 12-turn memory
+  bound, explicit End, media release, and browser/server error checks all
+  behaved as designed.
 - Last verified on 2026-08-25: 20 Python tests and 11 JavaScript tests pass.
 
 ## Known extraction risks
@@ -116,13 +120,13 @@ encountering navigation or extraction debris.
 
 ## Exact next task
 
-**VOICE-2: Run one real-key microphone smoke test covering start, interruption,
-mute/unmute, transcript memory, passage grounding, stop, and microphone release.
-Record any failure as a focused automated regression when practical.**
+**EXTRACT-2B: Listen through the opening of the rebuilt Sapiens index and fix
+only the page-boundary paragraph splits or captions that audibly disrupt that
+real reading path. Add one focused regression case for each fix.**
 
-Do not add wake words or spoken playback commands until this explicit-session
-flow is reliable. Extraction cleanup remains limited to artifacts that audibly
-disrupt the real opening path.
+Do not broaden this into a universal PDF-layout project. The explicit live
+voice session is verified; wake words and spoken playback commands remain
+outside this slice.
 
 ## Verification
 

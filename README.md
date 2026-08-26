@@ -507,14 +507,15 @@ reliable before adding autonomous voice controls.
 - grounded “Explain this” interaction; and
 - automated parser, API, and playback-helper tests.
 
-### Current focus: validate live conversation
+### Verified: live conversation
 
-- complete one real-key microphone smoke test;
-- verify start, interruption, mute/unmute, transcript memory, passage grounding,
-  stop, and media release; and
-- turn reproducible failures into focused regression tests.
+- a real-key browser smoke test covers start, interruption, mute/unmute,
+  transcript memory, passage grounding, stop, and media release;
+- the companion answered aloud from the current page context; and
+- the session ended without resuming narration or leaving an active media
+  source.
 
-### Continuing: extraction trust
+### Current focus: extraction trust
 
 - listen through the real Sapiens opening and fix only artifacts that disrupt
   narration;
