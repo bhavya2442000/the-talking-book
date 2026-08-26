@@ -8,15 +8,17 @@ the manual regression checklist.
 
 Build for one local reader and one book.
 
-The immediate product must do two things well:
+The immediate product must do three things well:
 
 1. Extract a trustworthy narration sequence from a text-based PDF.
 2. Give the reader a clean first session that introduces the book, offers the
    preface, and starts the main text correctly.
+3. Let the reader explicitly start and stop a low-latency voice conversation
+   grounded in the current passage.
 
-Do not add multiple users, multi-book conversation, microphone commands,
-durable notes, images, web research, accounts, synchronization, deployment, or
-other later features during this slice.
+Do not add multiple users, wake-word or spoken playback commands, durable
+server memory, notes, images, web research, accounts, synchronization,
+deployment, or other later features during this slice.
 
 ## Current verified baseline
 
@@ -39,7 +41,11 @@ other later features during this slice.
   chapter.
 - The local Sapiens index has been rebuilt and now starts at Chapter 1 on PDF
   page 11 instead of reading its contents or other front matter.
-- Last verified on 2026-08-25: 18 Python tests and 7 JavaScript tests pass.
+- A WebRTC voice session can be started, muted, stopped, and interrupted while
+  remaining grounded in the current passage and a bounded local transcript.
+- Narration and live microphone audio are mutually exclusive, and stopping a
+  voice session releases its media resources without resuming narration.
+- Last verified on 2026-08-25: 20 Python tests and 11 JavaScript tests pass.
 
 ## Known extraction risks
 
@@ -110,12 +116,13 @@ encountering navigation or extraction debris.
 
 ## Exact next task
 
-**EXTRACT-2B: Listen through the opening of the rebuilt Sapiens index and fix
-only the page-boundary paragraph splits or captions that audibly disrupt that
-real reading path. Add one focused regression case for each fix.**
+**VOICE-2: Run one real-key microphone smoke test covering start, interruption,
+mute/unmute, transcript memory, passage grounding, stop, and microphone release.
+Record any failure as a focused automated regression when practical.**
 
-Do not broaden this into a universal PDF-layout project. Once the opening reads
-cleanly, stop extraction work and evaluate the one-book first-session flow.
+Do not add wake words or spoken playback commands until this explicit-session
+flow is reliable. Extraction cleanup remains limited to artifacts that audibly
+disrupt the real opening path.
 
 ## Verification
 

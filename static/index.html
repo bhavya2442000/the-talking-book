@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/static/styles.css?v=3" />
+    <link rel="stylesheet" href="/static/styles.css?v=5" />
   </head>
   <body>
     <header class="topbar">
@@ -88,8 +88,30 @@
           <button id="askButton" class="primary-button full-width" type="submit">Explain this</button>
         </form>
         <div id="answer" class="answer" aria-live="polite"></div>
+        <section class="voice-card" aria-labelledby="voiceHeading">
+          <div class="voice-card-heading">
+            <div>
+              <span class="eyebrow">Live voice</span>
+              <h2 id="voiceHeading">Talk to this book</h2>
+            </div>
+            <span id="voiceStatus" class="voice-status" data-state="disconnected">Ready</span>
+          </div>
+          <p id="voiceMessage" class="voice-message" aria-live="polite">Ready when you are.</p>
+          <div class="voice-actions">
+            <button id="startVoiceButton" class="primary-button" type="button">Start talking</button>
+            <button id="muteVoiceButton" class="voice-button" type="button" disabled>Mute</button>
+            <button id="endVoiceButton" class="voice-button danger" type="button" disabled>End</button>
+          </div>
+          <div class="voice-memory-heading">
+            <span>Recent memory</span>
+            <button id="clearVoiceMemoryButton" class="text-button" type="button" disabled>Clear</button>
+          </div>
+          <div id="voiceTranscript" class="voice-transcript" aria-live="polite"></div>
+          <p class="voice-privacy">Your microphone is sent to OpenAI only while this session is live. Recent transcripts stay in this browser and are limited to 12 turns.</p>
+          <audio id="assistantAudio" autoplay hidden></audio>
+        </section>
         <div id="apiNotice" class="api-notice" hidden>
-          Browser narration is ready. Add an OpenAI API key to enable AI explanations and cloud voices.
+          Browser narration is ready. Add an OpenAI API key to enable explanations, cloud voices, and live book conversation.
         </div>
       </aside>
     </main>
@@ -122,6 +144,6 @@
       </div>
     </section>
 
-    <script type="module" src="/static/app.js?v=6"></script>
+    <script type="module" src="/static/app.js?v=7"></script>
   </body>
 </html>

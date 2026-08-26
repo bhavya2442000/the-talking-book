@@ -44,14 +44,15 @@ The quality gate is:
 | Playback controls | Working | Play/continue, pause, previous sentence, next sentence, repeat paragraph, and speed from 0.7× to 1.6×. |
 | Playback reliability | Working | Explicit Ready/Loading/Playing/Paused/Error state, stale-playback cancellation, two-sentence prefetch, and bounded client audio cache. |
 | Reading memory | Working | Save position, speed, and narration mode per book in browser storage; offer to resume on return. |
-| Reading companion | Working | Ask a question about the current passage and receive an answer grounded in the surrounding book text and PDF page numbers. |
-| Automated verification | Working | 18 Python tests and 7 JavaScript tests currently pass, backed by a repeatable manual smoke checklist. |
+| Reading companion | Working | Ask by text or start a live voice conversation grounded in the current passage and nearby physical PDF pages. |
+| Live voice conversation | Working | Explicit WebRTC start, mute/unmute, stop, interruption, media cleanup, and a bounded 12-turn per-book transcript memory. |
+| Automated verification | Working | 20 Python tests and 11 JavaScript tests currently pass, backed by a repeatable manual smoke checklist. |
 | First-time reading experience | Working | With one book, the app introduces its extracted title and author, offers a detected preface, or opens the first main chapter. |
 | Bookmarks and notes | Later | Not implemented yet; deferred until extraction and first-session behavior are reliable. |
 | Voice selection and sleep timer | Later | Not implemented yet. |
 | Passage actions and follow-up chat | Later | Explain works; Summarize, Define, Example, selected-text actions, and conversation history are not implemented. |
 | Extraction QA | Current focus | Front matter and contents are excluded from normal narration; visible caption and cross-page paragraph artifacts still need targeted cleanup. |
-| Microphone commands | Later | Spoken “pause,” “repeat,” and “explain that” commands are not implemented yet. |
+| Spoken playback commands | Later | Wake words and commands such as “pause,” “repeat,” and “continue” are not implemented yet. |
 | Live web research | Later | The companion currently uses only local book context; it does not search the web or collect outside commentary. |
 
 ## What you can do today
@@ -101,6 +102,12 @@ This is intentionally grounded question answering, not full retrieval over the
 entire book yet. Each request is independent; multi-turn chat memory and
 follow-up context have not been added.
 
+The **Talk to this book** panel starts an explicit WebRTC session with the
+Realtime API. Starting it stops narration first. The model receives the current
+passage, nearby paragraphs, and at most 12 recent local transcript turns. Mute
+disables the microphone track; End stops every track and closes the peer and
+event channel without restarting narration.
+
 ### Continue where you stopped
 
 For each book, the browser stores:
@@ -144,6 +151,8 @@ flowchart LR
     SpeechAPI --> AudioCache[(MP3 cache)]
     Reader --> Companion[Grounded passage question]
     Companion --> ResponsesAPI[OpenAI Responses API]
+    Reader --> Realtime[WebRTC voice session]
+    Realtime --> RealtimeAPI[OpenAI Realtime API]
 ```
 
 ### Extraction pipeline
@@ -239,7 +248,7 @@ Talking_book/
 - A modern browser with JavaScript enabled.
 - Node.js only if you want to run the JavaScript tests. The current environment
   uses Node.js 23.11.0.
-- An OpenAI API key only for AI explanations and OpenAI narration.
+- An OpenAI API key only for explanations, OpenAI narration, and live voice.
 
 ### 1. Create and activate the virtual environment
 
@@ -295,6 +304,8 @@ Open `.env` in your editor and add the key:
 OPENAI_API_KEY=your_key_here
 OPENAI_TEXT_MODEL=gpt-5.6-luna
 OPENAI_TTS_MODEL=tts-1
+OPENAI_REALTIME_MODEL=gpt-realtime-2.1
+OPENAI_REALTIME_VOICE=marin
 ```
 
 The key is loaded only by the Python server. It is never included in frontend
@@ -302,8 +313,8 @@ JavaScript or returned by `/api/config`. `.env` is ignored by Git. Restart the
 server after changing it.
 
 If you leave the key empty, uploading, extraction, reading, navigation, saved
-progress, and browser narration continue to work. Only AI explanations and
-OpenAI narration are disabled.
+progress, and browser narration continue to work. AI explanations, OpenAI
+narration, and live voice are disabled.
 
 ### 4. Start the app
 
@@ -392,9 +403,11 @@ Upload rules:
 
 | Environment variable | Default | Purpose |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | empty | Enables explanations and OpenAI speech generation. |
+| `OPENAI_API_KEY` | empty | Enables explanations, OpenAI speech generation, and live voice. |
 | `OPENAI_TEXT_MODEL` | `gpt-5.6-luna` | Model used by the passage companion. |
 | `OPENAI_TTS_MODEL` | `tts-1` | Model used for generated narration. |
+| `OPENAI_REALTIME_MODEL` | `gpt-realtime-2.1` | Model used for live voice conversation. |
+| `OPENAI_REALTIME_VOICE` | `marin` | Voice used by the live companion. |
 
 ## Testing
 
@@ -402,15 +415,15 @@ Run all current tests from an activated environment:
 
 ```bash
 python -m pytest -q
-node --test tests/playback_core.test.mjs
+node --test tests/*.test.mjs
 node --check static/app.js
 ```
 
 Current verified result:
 
 ```text
-Python:     18 passed
-JavaScript: 7 passed
+Python:     20 passed
+JavaScript: 11 passed
 Syntax:     static/app.js valid
 ```
 
@@ -418,7 +431,8 @@ The Python suite covers paragraph inference, dehyphenation, sentence splitting,
 golden reading-role and start-cursor expectations, book endpoints, missing-key
 behavior, grounded prompt construction, speech generation caching, and invalid
 upload rejection. The JavaScript suite also verifies that narration skips
-non-readable segments and honors explicit preface and main-text start cursors.
+non-readable segments, honors explicit preface and main-text start cursors, and
+checks the live voice lifecycle and bounded transcript-memory helpers.
 
 ## Engineering checks
 
@@ -466,10 +480,11 @@ bytecode compilation. The project rules that guide coding agents live in
 - English sentence segmentation is configured; multilingual books need language
   detection and appropriate segmenters.
 - The OpenAI narration voice is fixed to `alloy`; there is no voice picker yet.
-- The companion sees a small local context window, not the whole book, and does
-  not keep conversation history.
+- The companion sees a small local context window, not the whole book. Live
+  voice keeps only 12 transcript turns per book in that browser.
 - No web search, external reviews, or real-time commentary retrieval exists yet.
-- No microphone input, wake word, or spoken playback commands exist yet.
+- Live microphone conversation requires an explicit Start action. Wake words
+  and spoken playback commands do not exist yet.
 - Bookmarks, highlights, notes, sleep timer, reading goals, and cross-device sync
   are not implemented.
 - There is no delete-book UI, user account system, database, background job
@@ -478,8 +493,8 @@ bytecode compilation. The project rules that guide coding agents live in
 
 ## Incremental roadmap
 
-The guiding principle is to make reading interaction reliable before adding a
-fully live voice layer.
+The guiding principle is to keep reading and explicit live conversation
+reliable before adding autonomous voice controls.
 
 ### Completed foundation
 
@@ -492,7 +507,14 @@ fully live voice layer.
 - grounded “Explain this” interaction; and
 - automated parser, API, and playback-helper tests.
 
-### Current focus: extraction trust
+### Current focus: validate live conversation
+
+- complete one real-key microphone smoke test;
+- verify start, interruption, mute/unmute, transcript memory, passage grounding,
+  stop, and media release; and
+- turn reproducible failures into focused regression tests.
+
+### Continuing: extraction trust
 
 - listen through the real Sapiens opening and fix only artifacts that disrupt
   narration;
@@ -523,11 +545,11 @@ fully live voice layer.
 - multi-turn follow-up questions tied to a passage; and
 - book-wide retrieval when the local paragraph window is insufficient.
 
-### Later: live conversation and research
+### Later: spoken controls and research
 
 - microphone controls such as “wait,” “continue,” “repeat that,” and “explain
   this”;
-- interruption-aware, low-latency voice conversation;
+- wake-word activation and hands-free session control;
 - optional real-time web research for reviews, historical context, and other
   readers' interpretations, clearly separated from claims in the book;
 - conversation history and saved insights; and
