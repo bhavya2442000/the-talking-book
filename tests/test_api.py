@@ -152,6 +152,19 @@ def test_book_endpoints_and_no_key_explanation(monkeypatch, tmp_path: Path) -> N
     assert realtime.status_code == 503
 
 
+def test_book_titles_remove_download_site_suffix(monkeypatch, tmp_path: Path) -> None:
+    book = sample_book()
+    book["title"] = "Sapiens: A Brief History of Humankind - PDFDrive.com"
+    client = configure_store(monkeypatch, tmp_path, book)
+
+    assert client.get("/api/books").json()[0]["title"] == (
+        "Sapiens: A Brief History of Humankind"
+    )
+    assert client.get("/api/books/test-book").json()["title"] == (
+        "Sapiens: A Brief History of Humankind"
+    )
+
+
 def test_explanation_is_grounded_in_current_page(monkeypatch, tmp_path: Path) -> None:
     client = configure_store(monkeypatch, tmp_path)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
@@ -174,6 +187,64 @@ def test_explanation_is_grounded_in_current_page(monkeypatch, tmp_path: Path) ->
     assert "[PDF page 1]" in calls[0]["input"]
     assert "This is the current passage" in calls[0]["input"]
     assert "Reader question: Explain this." in calls[0]["input"]
+
+
+def test_research_is_anchored_to_the_passage_and_returns_sources(
+    monkeypatch, tmp_path: Path
+) -> None:
+    client = configure_store(monkeypatch, tmp_path)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_RESEARCH_MODEL", "research-test-model")
+    calls = []
+
+    class FakeResponse:
+        output_text = "A concise researched connection."
+
+        def model_dump(self):
+            return {
+                "output": [{
+                    "type": "web_search_call",
+                    "action": {
+                        "sources": [
+                            {"title": "Primary source", "url": "https://example.com/source"},
+                            {"title": "Duplicate", "url": "https://example.com/source"},
+                        ]
+                    },
+                }]
+            }
+
+    class FakeResponses:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            return FakeResponse()
+
+    monkeypatch.setattr(
+        main,
+        "_openai_client",
+        lambda: SimpleNamespace(responses=FakeResponses()),
+    )
+
+    response = client.post(
+        "/api/books/test-book/research",
+        json={
+            "segment_index": 1,
+            "scope": "sentence",
+            "query": "Where did this idea originate?",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["answer"] == "A concise researched connection."
+    assert response.json()["page"] == 1
+    assert response.json()["sources"] == [
+        {"title": "Primary source", "url": "https://example.com/source"}
+    ]
+    assert calls[0]["model"] == "research-test-model"
+    assert calls[0]["tools"] == [{"type": "web_search"}]
+    assert calls[0]["include"] == ["web_search_call.action.sources"]
+    assert "Anchored physical PDF page: 1" in calls[0]["input"]
+    assert "Anchored sentence: It has useful context." in calls[0]["input"]
+    assert "Research question: Where did this idea originate?" in calls[0]["input"]
 
 
 def test_speech_audio_is_generated_and_cached(monkeypatch, tmp_path: Path) -> None:
@@ -269,11 +340,79 @@ def test_realtime_handoff_is_grounded_and_returns_answer_sdp(monkeypatch, tmp_pa
     assert session["model"] == "realtime-test-model"
     assert session["audio"]["output"]["voice"] == "marin"
     assert session["audio"]["input"]["turn_detection"]["create_response"] is True
+    assert session["tool_choice"] == "auto"
+    tools = {tool["name"]: tool for tool in session["tools"]}
+    assert set(tools) == {"control_reader", "annotate_book"}
+    assert tools["control_reader"]["parameters"]["properties"]["action"]["enum"] == [
+        "continue",
+        "repeat",
+    ]
+    annotation_parameters = tools["annotate_book"]["parameters"]
+    assert annotation_parameters["properties"]["action"]["enum"] == [
+        "note",
+        "highlight",
+        "research",
+    ]
+    assert annotation_parameters["properties"]["scope"]["enum"] == [
+        "sentence",
+        "paragraph",
+    ]
+    assert annotation_parameters["required"] == ["action", "scope", "text"]
+    assert annotation_parameters["additionalProperties"] is False
     assert "[PDF page 1]" in session["instructions"]
     assert "[PDF page 2]" in session["instructions"]
     assert "[PDF page 3]" in session["instructions"]
     assert "Who is speaking?" in session["instructions"]
     assert "untrusted reference data" in session["instructions"]
+    assert "control_reader" in session["instructions"]
+    assert "annotate_book" in session["instructions"]
+    assert "Wait silently when the session connects" in session["instructions"]
+    assert "Stopped sentence: This is the middle passage." in session["instructions"]
+    assert "Stopped paragraph: This is the middle passage." in session["instructions"]
+
+
+def test_library_realtime_welcome_lists_real_books_and_one_validated_tool(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    first = sample_book()
+    first["title"] = "Sapiens - PDFDrive.com"
+    client = configure_store(monkeypatch, tmp_path, first)
+    second = sample_book()
+    second.update(id="book-two", title="A Second Book", author="Another Author")
+    main.store.save(second)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    calls = []
+
+    async def fake_offer(sdp, session):
+        calls.append((sdp, session))
+        return httpx.Response(201, text="v=0\r\na=answer")
+
+    monkeypatch.setattr(main, "_post_realtime_offer", fake_offer)
+    response = client.post(
+        "/api/realtime/library",
+        json={"sdp": "v=0\r\na=offer", "recent_turns": []},
+    )
+
+    assert response.status_code == 200
+    offer, session = calls[0]
+    assert offer == "v=0\r\na=offer"
+    assert session["output_modalities"] == ["audio"]
+    assert session["tool_choice"] == "auto"
+    assert len(session["tools"]) == 1
+    tool = session["tools"][0]
+    assert tool["name"] == "welcome_reader"
+    assert set(tool["parameters"]["properties"]["book_id"]["enum"]) == {
+        "test-book",
+        "book-two",
+    }
+    assert tool["parameters"]["required"] == ["action", "book_id", "start"]
+    assert tool["parameters"]["additionalProperties"] is False
+    assert "PDFDrive.com" not in session["instructions"]
+    assert "title=Sapiens;" in session["instructions"]
+    assert "title=A Second Book;" in session["instructions"]
+    assert "Never invent a book id" in session["instructions"]
+    assert "Never start book text immediately after book selection" in session["instructions"]
 
 
 def test_realtime_handoff_maps_upstream_failures(monkeypatch, tmp_path: Path) -> None:
@@ -290,6 +429,34 @@ def test_realtime_handoff_maps_upstream_failures(monkeypatch, tmp_path: Path) ->
     )
     assert response.status_code == 502
     assert "(429)" in response.json()["detail"]
+
+
+def test_realtime_context_refresh_tracks_the_current_physical_passage(
+    monkeypatch, tmp_path: Path
+) -> None:
+    client = configure_store(monkeypatch, tmp_path, context_book())
+
+    response = client.post(
+        "/api/books/test-book/realtime/context",
+        json={
+            "segment_index": 2,
+            "recent_turns": [{"role": "user", "text": "What changed?"}],
+        },
+    )
+
+    assert response.status_code == 200
+    instructions = response.json()["instructions"]
+    assert "Current PDF page: 3" in instructions
+    assert "Stopped sentence: This is the closing passage." in instructions
+    assert "Stopped paragraph: This is the closing passage." in instructions
+    assert "[PDF page 2]" in instructions
+    assert "[PDF page 3]" in instructions
+    assert "What changed?" in instructions
+    assert {tool["name"] for tool in response.json()["tools"]} == {
+        "control_reader",
+        "annotate_book",
+    }
+    assert response.json()["tool_choice"] == "auto"
 
 
 def test_upload_rejects_oversized_pdf(monkeypatch, tmp_path: Path) -> None:
@@ -334,6 +501,98 @@ def test_duplicate_upload_returns_existing_book_without_extraction(
     assert response.status_code == 201
     assert response.json()["id"] == "test-book"
     assert list(main.UPLOAD_DIR.iterdir()) == []
+
+
+def test_new_upload_runs_and_saves_the_opening_mapper(
+    monkeypatch, tmp_path: Path
+) -> None:
+    client = configure_store(monkeypatch, tmp_path)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_TEXT_MODEL", "opening-test-model")
+    fake_openai = object()
+    calls = []
+
+    def fake_extract(_path, *, book_id):
+        book = sample_book()
+        book["id"] = book_id
+        book["source_sha256"] = sha256(b"%PDF-new-book").hexdigest()
+        return book
+
+    def fake_map(book, *, client, model):
+        calls.append((client, model))
+        book["opening_plan"] = {"status": "ready", "method": "test"}
+        return book
+
+    monkeypatch.setattr(main, "extract_book", fake_extract)
+    monkeypatch.setattr(main, "map_book_opening", fake_map)
+    monkeypatch.setattr(main, "_openai_client", lambda: fake_openai)
+
+    response = client.post(
+        "/api/books",
+        files={"file": ("new.pdf", b"%PDF-new-book", "application/pdf")},
+    )
+
+    assert response.status_code == 201
+    saved = client.get(f"/api/books/{response.json()['id']}").json()
+    assert saved["opening_plan"] == {"status": "ready", "method": "test"}
+    assert calls == [(fake_openai, "opening-test-model")]
+
+
+def test_reindex_uses_original_pdf_and_remaps_saved_sentence(
+    monkeypatch, tmp_path: Path
+) -> None:
+    payload = b"%PDF-original-book"
+    book = sample_book()
+    book["source_sha256"] = sha256(payload).hexdigest()
+    client = configure_store(monkeypatch, tmp_path, book)
+    source_path = main.UPLOAD_DIR / "test-book.pdf"
+    source_path.write_bytes(payload)
+    calls = []
+
+    def fake_extract(path, *, book_id):
+        calls.append((path, book_id))
+        refreshed = sample_book()
+        refreshed["segments"] = [
+            {
+                "index": 0,
+                "page": 1,
+                "section": 0,
+                "paragraph": 0,
+                "text": "A newly detected opening sentence.",
+            },
+            *[
+                {**segment, "index": segment["index"] + 1}
+                for segment in refreshed["segments"]
+            ],
+        ]
+        refreshed["segment_count"] = 3
+        return refreshed
+
+    def fake_map(refreshed, *, client, model):
+        refreshed["opening_plan"] = {"status": "ready", "method": "test"}
+        return refreshed
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(main, "extract_book", fake_extract)
+    monkeypatch.setattr(main, "map_book_opening", fake_map)
+
+    response = client.post(
+        "/api/books/test-book/reindex",
+        json={"segment_index": 1},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "book_id": "test-book",
+        "segment_index": 2,
+        "cursor_status": "exact",
+        "opening_status": "ready",
+    }
+    assert calls == [(source_path, "test-book")]
+    assert source_path.read_bytes() == payload
+    saved = client.get("/api/books/test-book").json()
+    assert saved["source_filename"] == "test.pdf"
+    assert saved["opening_plan"] == {"status": "ready", "method": "test"}
 
 
 def test_explanation_context_is_bounded_at_book_edges(monkeypatch, tmp_path: Path) -> None:

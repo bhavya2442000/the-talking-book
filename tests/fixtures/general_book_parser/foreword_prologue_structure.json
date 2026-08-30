@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "id": "foreword_prologue_structure",
+  "description": "A book that offers a foreword and prologue before a nested first chapter.",
+  "license": {
+    "kind": "CC0 synthetic",
+    "redistributable": true,
+    "notes": "All text was generated for parser evaluation."
+  },
+  "document": {
+    "title": "Paths Through Morning",
+    "author": "Example Author",
+    "pages": [
+      {"number": 1, "lines": [
+        {"text": "Contents", "x": 230, "y": 680, "size": 20, "font": "bold"},
+        {"text": "Foreword ........ ii", "x": 86.4, "y": 630, "size": 14.4},
+        {"text": "Chapter One ........ 1", "x": 86.4, "y": 605, "size": 14.4}
+      ]},
+      {"number": 2, "lines": [
+        {"text": "Foreword", "x": 230, "y": 680, "size": 20, "font": "bold"},
+        {"text": "This foreword explains why the journey was recorded.", "x": 86.4, "y": 630, "size": 14.4}
+      ]},
+      {"number": 3, "lines": [
+        {"text": "Prologue", "x": 235, "y": 680, "size": 20, "font": "bold"},
+        {"text": "Before dawn, the unopened road waited quietly.", "x": 86.4, "y": 630, "size": 14.4}
+      ]},
+      {"number": 4, "lines": [
+        {"text": "Part One", "x": 240, "y": 680, "size": 20, "font": "bold"}
+      ]},
+      {"number": 5, "lines": [
+        {"text": "Chapter One", "x": 220, "y": 680, "size": 20, "font": "bold"},
+        {"text": "The first main chapter starts beside the river.", "x": 86.4, "y": 630, "size": 14.4}
+      ]}
+    ],
+    "outline": [
+      {"title": "Contents", "page": 1, "level": 0},
+      {"title": "Foreword", "page": 2, "level": 0},
+      {"title": "Prologue", "page": 3, "level": 0},
+      {"title": "Part One", "page": 4, "level": 0},
+      {"title": "Chapter One", "page": 5, "level": 1}
+    ]
+  },
+  "expectations": {
+    "bbox_required": true,
+    "blocks": [
+      {"text": "Contents", "block_type": "contents", "reading_role": "contents", "narration_eligible": false, "pages": [1]},
+      {"text": "Foreword", "block_type": "heading", "reading_role": "foreword", "narration_eligible": true, "pages": [2]},
+      {"text": "Prologue", "block_type": "heading", "reading_role": "prologue", "narration_eligible": true, "pages": [3]},
+      {"text": "Chapter One", "block_type": "heading", "reading_role": "main", "narration_eligible": true, "pages": [5]}
+    ],
+    "reading_order": [
+      "Foreword",
+      "This foreword explains why the journey was recorded.",
+      "Prologue",
+      "Before dawn, the unopened road waited quietly.",
+      "Chapter One",
+      "The first main chapter starts beside the river."
+    ],
+    "sections": [
+      {"title": "Contents", "page_start": 1, "reading_role": "contents", "narration_eligible": false},
+      {"title": "Foreword", "page_start": 2, "reading_role": "foreword", "narration_eligible": true},
+      {"title": "Prologue", "page_start": 3, "reading_role": "prologue", "narration_eligible": true},
+      {"title": "Part One", "page_start": 4, "reading_role": "main", "narration_eligible": true},
+      {"title": "Chapter One", "page_start": 5, "reading_role": "main", "narration_eligible": true}
+    ],
+    "starts": {
+      "first_eligible": "Foreword",
+      "foreword": "Foreword",
+      "prologue": "Prologue",
+      "main_text": "Chapter One"
+    },
+    "spans": [
+      {"text": "The first main chapter starts beside the river.", "pages": [5]}
+    ],
+    "uncertainties": []
+  }
+}

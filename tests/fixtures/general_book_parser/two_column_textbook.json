@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "two_column_textbook",
+  "description": "A textbook page whose visual reading order completes the left column before the right column.",
+  "license": {
+    "kind": "CC0 synthetic",
+    "redistributable": true,
+    "notes": "All text and layout were generated for parser evaluation."
+  },
+  "document": {
+    "title": "Synthetic Energy Lessons",
+    "author": "Example Author",
+    "pages": [
+      {
+        "number": 1,
+        "lines": [
+          {"text": "Chapter One: Energy Paths", "x": 175, "y": 740, "size": 20, "font": "bold"},
+          {"text": "Primary Explanation", "x": 60, "y": 680, "size": 16, "font": "bold"},
+          {"text": "Related Example", "x": 330, "y": 670, "size": 16, "font": "bold"},
+          {"text": "Energy moves while matter stays.", "x": 60, "y": 630, "size": 12},
+          {"text": "A spring stores energy.", "x": 330, "y": 620, "size": 12},
+          {"text": "The left explanation ends here.", "x": 60, "y": 580, "size": 12},
+          {"text": "The right example follows later.", "x": 330, "y": 570, "size": 12}
+        ]
+      }
+    ],
+    "outline": [
+      {"title": "Chapter One: Energy Paths", "page": 1, "level": 0}
+    ]
+  },
+  "expectations": {
+    "bbox_required": true,
+    "blocks": [
+      {"text": "Chapter One: Energy Paths", "block_type": "heading", "reading_role": "main", "narration_eligible": true, "pages": [1]},
+      {"text": "Primary Explanation", "block_type": "heading", "reading_role": "main", "narration_eligible": true, "pages": [1]},
+      {"text": "Related Example", "block_type": "heading", "reading_role": "main", "narration_eligible": true, "pages": [1]},
+      {"text": "Energy moves while matter stays.", "block_type": "prose", "reading_role": "main", "narration_eligible": true, "pages": [1]},
+      {"text": "The left explanation ends here.", "block_type": "prose", "reading_role": "main", "narration_eligible": true, "pages": [1]},
+      {"text": "A spring stores energy.", "block_type": "prose", "reading_role": "main", "narration_eligible": true, "pages": [1]},
+      {"text": "The right example follows later.", "block_type": "prose", "reading_role": "main", "narration_eligible": true, "pages": [1]}
+    ],
+    "reading_order": [
+      "Chapter One: Energy Paths",
+      "Primary Explanation",
+      "Energy moves while matter stays.",
+      "The left explanation ends here.",
+      "Related Example",
+      "A spring stores energy.",
+      "The right example follows later."
+    ],
+    "sections": [
+      {"title": "Chapter One: Energy Paths", "page_start": 1, "reading_role": "main", "narration_eligible": true}
+    ],
+    "starts": {
+      "first_eligible": "Chapter One: Energy Paths",
+      "main_text": "Chapter One: Energy Paths"
+    },
+    "spans": [
+      {"text": "Energy moves while matter stays.", "pages": [1]},
+      {"text": "A spring stores energy.", "pages": [1]}
+    ],
+    "uncertainties": []
+  }
+}

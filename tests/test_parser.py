@@ -4,6 +4,7 @@ from pathlib import Path
 from app.parser import (
     LayoutLine,
     _layout_lines,
+    _lines_to_paragraph_blocks,
     _lines_to_paragraphs,
     _reading_order,
     _section_reading_metadata,
@@ -73,6 +74,11 @@ def test_golden_outline_sections_have_expected_reading_metadata() -> None:
             case["expected_role"],
             case["expected_narration_eligible"],
         )
+
+
+def test_common_cover_and_copyright_outline_titles_are_not_narrated() -> None:
+    assert _section_reading_metadata("Cover") == ("front_matter", False)
+    assert _section_reading_metadata("Copyright Page") == ("front_matter", False)
 
 
 def test_golden_outline_exposes_preface_and_main_text_starts() -> None:
@@ -147,4 +153,41 @@ def test_edge_page_number_fixture_is_removed_before_paragraph_building() -> None
 
     assert [line.text for line in _layout_lines(FakePage())] == [
         "A synthetic body line remains readable."
+    ]
+
+
+def test_small_labeled_caption_remains_page_content_but_is_not_narrated() -> None:
+    caption = next(
+        case
+        for case in GOLDEN_FIXTURE["risk_cases"]
+        if case["type"] == "caption"
+    )
+    blocks = _lines_to_paragraph_blocks(
+        [
+            line("A sufficiently long body line establishes the body typography.", 100),
+            line(caption["text"], 180, x0=180, size=10.8),
+            line(
+                "Its centered continuation remains part of the caption.",
+                193,
+                x0=205,
+                size=10.8,
+            ),
+            line("Ordinary narration continues after the illustration.", 220),
+        ]
+    )
+
+    assert [
+        (block.text, block.block_type, block.narration_eligible) for block in blocks
+    ] == [
+        (
+            "A sufficiently long body line establishes the body typography.",
+            "prose",
+            True,
+        ),
+        (
+            f'{caption["text"]} Its centered continuation remains part of the caption.',
+            "caption",
+            caption["expected_narration_eligible"],
+        ),
+        ("Ordinary narration continues after the illustration.", "prose", True),
     ]

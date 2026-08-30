@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "description": "Copyright-safe synthetic PDFs for general book parser evaluation.",
+  "fixtures": [
+    {
+      "id": "outline_and_layout_risks",
+      "path": "outline_and_layout_risks.json"
+    },
+    {
+      "id": "foreword_prologue_structure",
+      "path": "foreword_prologue_structure.json"
+    },
+    {
+      "id": "unbookmarked_cross_page_prose",
+      "path": "unbookmarked_cross_page_prose.json"
+    },
+    {
+      "id": "two_column_textbook",
+      "path": "two_column_textbook.json"
+    },
+    {
+      "id": "image_only_scanned_page",
+      "path": "image_only_scanned_page.json"
+    }
+  ]
+}

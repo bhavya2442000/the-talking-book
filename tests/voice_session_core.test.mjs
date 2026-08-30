@@ -4,11 +4,178 @@ import test from "node:test";
 import {
   VOICE_STATES,
   appendVoiceTurn,
+  completedReaderAction,
+  completedWelcomeAction,
   completedVoiceTurn,
   sanitizeVoiceTurns,
+  shouldInterruptNarration,
+  shouldCreateInitialVoiceResponse,
+  shouldKeepVoiceForPlayback,
+  shouldPauseNarrationForVoiceStart,
+  shouldResumeAfterVoice,
   transitionVoiceState,
   voiceMemoryKey,
+  welcomeOpeningDecisionEvents,
 } from "../static/voice_session_core.mjs";
+
+test("persistent microphone internals remain isolated from on-demand voice", () => {
+  assert.equal(shouldKeepVoiceForPlayback(true), true);
+  assert.equal(shouldKeepVoiceForPlayback(false), false);
+  assert.equal(shouldInterruptNarration(true, "playing"), true);
+  assert.equal(shouldInterruptNarration(true, "loading"), true);
+  assert.equal(shouldInterruptNarration(true, "paused"), false);
+  assert.equal(shouldInterruptNarration(false, "playing"), false);
+  assert.equal(shouldCreateInitialVoiceResponse(true), false);
+  assert.equal(shouldCreateInitialVoiceResponse(false), false);
+  assert.equal(shouldCreateInitialVoiceResponse(true, true), true);
+  assert.equal(shouldPauseNarrationForVoiceStart(true), false);
+  assert.equal(shouldPauseNarrationForVoiceStart(false), true);
+});
+
+test("on-demand voice waits silently for the reader while welcome speaks first", () => {
+  assert.equal(shouldCreateInitialVoiceResponse(false, false), false);
+  assert.equal(shouldCreateInitialVoiceResponse(false, true), true);
+});
+
+test("welcome tool accepts only real books and valid two-stage choices", () => {
+  const event = (argumentsValue) => ({
+    type: "response.done",
+    response: {
+      status: "completed",
+      output: [{
+        type: "function_call",
+        status: "completed",
+        name: "welcome_reader",
+        call_id: "welcome-1",
+        arguments: JSON.stringify(argumentsValue),
+      }],
+    },
+  });
+
+  assert.deepEqual(completedWelcomeAction(event({
+    action: "select_book",
+    book_id: "book-a",
+    start: "none",
+  }), ["book-a", "book-b"]), {
+    action: "select_book",
+    bookId: "book-a",
+    start: "none",
+    callId: "welcome-1",
+  });
+  assert.deepEqual(completedWelcomeAction(event({
+    action: "start_reading",
+    book_id: "book-b",
+    start: "recommended",
+  }), ["book-a", "book-b"]), {
+    action: "start_reading",
+    bookId: "book-b",
+    start: "recommended",
+    callId: "welcome-1",
+  });
+  assert.equal(completedWelcomeAction(event({
+    action: "select_book",
+    book_id: "invented-book",
+    start: "none",
+  }), ["book-a"]), null);
+  assert.equal(completedWelcomeAction(event({
+    action: "select_book",
+    book_id: "book-a",
+    start: "main",
+  }), ["book-a"]), null);
+  assert.equal(completedWelcomeAction(event({
+    action: "start_reading",
+    book_id: "book-a",
+    start: "none",
+  }), ["book-a"]), null);
+});
+
+test("welcome asks the opening question in speech then requires a start action", () => {
+  const withChoice = welcomeOpeningDecisionEvents(true);
+  assert.equal(withChoice.requireDecision.session.tool_choice, "required");
+  assert.equal(withChoice.askQuestion.response.tool_choice, "none");
+  assert.match(withChoice.askQuestion.response.instructions, /Do not explain/);
+  assert.match(withChoice.askQuestion.response.instructions, /recommended opening or main text/);
+
+  const directStart = welcomeOpeningDecisionEvents(false);
+  assert.equal(directStart.requireDecision.session.tool_choice, "required");
+  assert.equal(directStart.askQuestion.response.tool_choice, "none");
+  assert.match(directStart.askQuestion.response.instructions, /confirmation question/);
+});
+
+test("one reader-control contract validates supported model plans", () => {
+  const action = completedReaderAction({
+    type: "response.done",
+    response: {
+      status: "completed",
+      output: [{
+        type: "function_call",
+        status: "completed",
+        name: "control_reader",
+        call_id: "call-42",
+        arguments: JSON.stringify({ action: "continue", scope: "current_position" }),
+      }],
+    },
+  });
+
+  assert.deepEqual(action, {
+    action: "continue",
+    scope: "current_position",
+    callId: "call-42",
+  });
+  assert.deepEqual(completedReaderAction({
+    type: "response.done",
+    response: {
+      status: "completed",
+      output: [{
+        type: "function_call",
+        status: "completed",
+        name: "control_reader",
+        call_id: "call-repeat",
+        arguments: JSON.stringify({ action: "repeat", scope: "paragraph" }),
+      }],
+    },
+  }), { action: "repeat", scope: "paragraph", callId: "call-repeat" });
+  assert.equal(completedReaderAction({ type: "response.done", response: {} }), null);
+  assert.equal(completedReaderAction({
+    type: "response.done",
+    response: {
+      status: "completed",
+      output: [{
+        type: "function_call",
+        status: "completed",
+        name: "skip_a_chapter",
+        call_id: "call-43",
+        arguments: "{}",
+      }],
+    },
+  }), null);
+  assert.equal(completedReaderAction({
+    type: "response.done",
+    response: {
+      status: "completed",
+      output: [{
+        type: "function_call",
+        status: "completed",
+        name: "control_reader",
+        call_id: "call-44",
+        arguments: "{not-json}",
+      }],
+    },
+  }), null);
+  assert.equal(completedReaderAction({
+    type: "response.done",
+    response: {
+      status: "completed",
+      output: [{
+        type: "function_call",
+        status: "completed",
+        name: "control_reader",
+        call_id: "call-invalid-combination",
+        arguments: JSON.stringify({ action: "continue", scope: "paragraph" }),
+      }],
+    },
+  }), null);
+});
 
 test("voice lifecycle follows explicit start, mute, stop, and retry states", () => {
   let state = VOICE_STATES.DISCONNECTED;
@@ -78,4 +245,12 @@ test("completed transcript events become bounded memory turns", () => {
     { role: "assistant", text: "It means the narrator has changed their mind." },
   ]);
   assert.equal(completedVoiceTurn({ type: "response.done" }), null);
+});
+
+test("voice conversation resumes only narration that it interrupted", () => {
+  assert.equal(shouldResumeAfterVoice("playing"), true);
+  assert.equal(shouldResumeAfterVoice("loading"), true);
+  assert.equal(shouldResumeAfterVoice("paused"), false);
+  assert.equal(shouldResumeAfterVoice("stopped"), false);
+  assert.equal(shouldResumeAfterVoice("error"), false);
 });

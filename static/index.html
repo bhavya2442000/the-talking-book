@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/static/styles.css?v=5" />
+    <link rel="stylesheet" href="/static/styles.css?v=7" />
   </head>
   <body>
     <header class="topbar">
@@ -40,6 +40,14 @@
           <p id="bookAuthor"></p>
           <p id="bookStats"></p>
         </div>
+        <button id="reindexBook" class="text-button reindex-button" type="button">
+          Re-analyze book
+        </button>
+        <div id="sessionTestControls" class="session-test-controls" hidden>
+          <span>Test view</span>
+          <a id="newReaderTest" href="?session=new">New reader</a>
+          <a id="returningReaderTest" href="?session=returning">Returning reader</a>
+        </div>
         <div class="toc-heading">
           <span>Contents</span>
           <button id="collapseToc" class="icon-button" type="button" aria-label="Collapse contents">←</button>
@@ -55,24 +63,44 @@
           </div>
           <span id="pageBadge" class="page-badge">PDF page —</span>
         </div>
+        <div id="libraryWelcome" class="library-welcome" hidden>
+          <div>
+            <span class="eyebrow">First visit</span>
+            <strong>Welcome to your library</strong>
+            <p id="libraryWelcomeText">Choose a book, and we’ll help you start in the right place.</p>
+          </div>
+          <div id="welcomeBookChoices" class="welcome-book-choices"></div>
+        </div>
         <div id="startPrompt" class="start-prompt" hidden>
           <div>
             <strong id="startTitle">Your book is ready</strong>
             <span id="startText"></span>
           </div>
           <div class="resume-actions">
-            <button id="readPreface" class="text-button" type="button" hidden>Read the preface</button>
-            <button id="beginBook" class="small-button" type="button">Begin reading</button>
+            <button id="readPreface" class="small-button" type="button" hidden>Start with the opening</button>
+            <button id="beginBook" class="text-button" type="button">Skip to the main text</button>
           </div>
         </div>
         <div id="resumePrompt" class="resume-prompt" hidden>
           <div>
-            <strong>Continue where you left off?</strong>
+            <strong>Welcome back</strong>
             <span id="resumeText">Your saved position is ready.</span>
+            <p id="resumeRecap" class="resume-recap" hidden></p>
           </div>
           <div class="resume-actions">
-            <button id="dismissResume" class="text-button" type="button">Start here</button>
-            <button id="continueResume" class="small-button" type="button">Continue</button>
+            <button id="dismissResume" class="text-button" type="button">Start over</button>
+            <button id="recapResume" class="text-button" type="button">Quick recap</button>
+            <button id="continueResume" class="small-button" type="button">Continue reading</button>
+          </div>
+        </div>
+        <div id="chapterTransition" class="chapter-transition" hidden>
+          <div>
+            <strong id="chapterCompleteTitle">Section complete</strong>
+            <span id="chapterNextText">The next section is ready.</span>
+          </div>
+          <div class="resume-actions">
+            <button id="stayAtChapter" class="text-button" type="button">Pause here</button>
+            <button id="continueChapter" class="small-button" type="button">Continue</button>
           </div>
         </div>
         <article id="reader" class="reader" aria-live="polite"></article>
@@ -91,17 +119,12 @@
         <section class="voice-card" aria-labelledby="voiceHeading">
           <div class="voice-card-heading">
             <div>
-              <span class="eyebrow">Live voice</span>
-              <h2 id="voiceHeading">Talk to this book</h2>
+              <span class="eyebrow">On-demand voice</span>
+              <h2 id="voiceHeading">Ask about this passage</h2>
             </div>
             <span id="voiceStatus" class="voice-status" data-state="disconnected">Ready</span>
           </div>
-          <p id="voiceMessage" class="voice-message" aria-live="polite">Ready when you are.</p>
-          <div class="voice-actions">
-            <button id="startVoiceButton" class="primary-button" type="button">Start talking</button>
-            <button id="muteVoiceButton" class="voice-button" type="button" disabled>Mute</button>
-            <button id="endVoiceButton" class="voice-button danger" type="button" disabled>End</button>
-          </div>
+          <p id="voiceMessage" class="voice-message" aria-live="polite">Ask by voice when you want to pause at this sentence.</p>
           <div class="voice-memory-heading">
             <span>Recent memory</span>
             <button id="clearVoiceMemoryButton" class="text-button" type="button" disabled>Clear</button>
@@ -136,6 +159,7 @@
         <button id="nextButton" class="round-button secondary" type="button" title="Next sentence" aria-label="Next sentence">›</button>
       </div>
       <div class="voice-controls">
+        <button id="startVoiceButton" class="voice-button" type="button">Ask by voice</button>
         <label for="rate">Speed <span id="rateValue">1×</span></label>
         <input id="rate" type="range" min="0.7" max="1.6" value="1" step="0.1" />
         <label id="cloudVoiceLabel" class="cloud-toggle" hidden>
@@ -144,6 +168,6 @@
       </div>
     </section>
 
-    <script type="module" src="/static/app.js?v=7"></script>
+    <script type="module" src="/static/app.js?v=19"></script>
   </body>
 </html>

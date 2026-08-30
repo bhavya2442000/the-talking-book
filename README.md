@@ -8,14 +8,17 @@ bring in outside research.
 
 This repository is currently a working local pre-alpha vertical slice. The core
 read → listen → interrupt → ask loop works in the browser. It is not yet a
-hosted, multi-user product.
+hosted, multi-user product. Treat the current browser screen as a development
+and testing console: reading, interruption, and book-navigation capabilities
+should remain usable by a future voice-first client and should not depend on
+where a book came from.
 
 ## Near-term scope
 
-The immediate product slice is intentionally narrow: one local user, one book,
-trustworthy extraction, and a good first-reading experience. The next work is
-not multi-book selection, accounts, synchronization, images, web research, or
-full voice control. Those remain later roadmap items.
+The immediate product slice is intentionally narrow: one local user, a small
+local library, trustworthy extraction, and a good first-reading experience.
+Accounts, synchronization, images, wake words, and production hosting remain
+later roadmap items.
 
 The quality gate is:
 
@@ -23,7 +26,8 @@ The quality gate is:
 2. Make the first session identify the book, skip non-reading material such as
    the table of contents, offer the preface when present, and begin the main
    text at the correct page and sentence.
-3. Only then add durable memory and the first narrow voice-control milestone.
+3. Keep voice controls, passage annotations, and sourced research anchored to
+   the authoritative sentence and physical PDF page.
 
 ## Project documents
 
@@ -37,23 +41,23 @@ The quality gate is:
 | Area | Status | What exists now |
 | --- | --- | --- |
 | PDF ingestion | Working | Upload text-based PDFs up to 50 MB, validate the file, and avoid duplicate indexing by SHA-256 hash. |
-| Book structure | Working | Preserve physical PDF pages, publisher outline sections, inferred paragraphs, and sentence-level reading segments. |
+| Book structure | Working | Preserve physical PDF pages and use publisher outlines when available; otherwise a bounded model scout can identify a source-verified opening for new uploads. |
 | Reader | Working | Browse the library and table of contents, read by chapter, click any sentence, and see its physical PDF page. |
 | Browser narration | Working | Continuous sentence-by-sentence playback using the browser's built-in speech engine. No API key required. |
 | OpenAI narration | Working | Optional OpenAI speech generation with client prefetching and disk caching. The current voice is fixed to `alloy`. |
 | Playback controls | Working | Play/continue, pause, previous sentence, next sentence, repeat paragraph, and speed from 0.7× to 1.6×. |
 | Playback reliability | Working | Explicit Ready/Loading/Playing/Paused/Error state, stale-playback cancellation, two-sentence prefetch, and bounded client audio cache. |
 | Reading memory | Working | Save position, speed, and narration mode per book in browser storage; offer to resume on return. |
-| Reading companion | Working | Ask by text or start a live voice conversation grounded in the current passage and nearby physical PDF pages. |
-| Live voice conversation | Working | Explicit WebRTC start, mute/unmute, stop, interruption, media cleanup, and a bounded 12-turn per-book transcript memory. |
-| Automated verification | Working | 20 Python tests and 11 JavaScript tests currently pass, backed by a repeatable manual smoke checklist. |
-| First-time reading experience | Working | With one book, the app introduces its extracted title and author, offers a detected preface, or opens the first main chapter. |
-| Bookmarks and notes | Later | Not implemented yet; deferred until extraction and first-session behavior are reliable. |
+| Reading companion | Working | Start a live voice conversation grounded in the current passage and nearby physical PDF pages; the text explanation endpoint remains available without occupying the primary reader UI. |
+| Live voice conversation | Working | One on-demand WebRTC control pauses at the exact sentence, listens only when invoked, supports Continue/Repeat, cleans up media, and keeps a bounded 12-turn per-book transcript memory. |
+| Automated verification | Working | 37 Python tests and 26 JavaScript tests currently pass, backed by a repeatable manual smoke checklist. |
+| First-time reading experience | Working | With multiple books, one Play press starts a hands-free spoken choice of book and parser-verified opening; visible choices remain as fallbacks. Returning readers open their most recently used book. |
+| Highlights and notes | Working | Spoken requests create local, page-anchored sentence or paragraph highlights and notes. |
 | Voice selection and sleep timer | Later | Not implemented yet. |
 | Passage actions and follow-up chat | Later | Explain works; Summarize, Define, Example, selected-text actions, and conversation history are not implemented. |
 | Extraction QA | Current focus | Front matter and contents are excluded from normal narration; visible caption and cross-page paragraph artifacts still need targeted cleanup. |
-| Spoken playback commands | Later | Wake words and commands such as “pause,” “repeat,” and “continue” are not implemented yet. |
-| Live web research | Later | The companion currently uses only local book context; it does not search the web or collect outside commentary. |
+| Spoken playback commands | Working | During an explicit on-demand conversation, natural Continue and Repeat requests control narration. Wake words and always-listening mode are not implemented. |
+| Live web research | Working | A spoken research request uses sourced web search and stores the external result beside its anchored passage. |
 
 ## What you can do today
 
@@ -63,6 +67,9 @@ The quality gate is:
 - Switch between indexed books from the Library menu.
 - Use a publisher-provided PDF outline as the table of contents.
 - Keep the original page number attached to every extracted passage.
+- On a first visit with multiple books, press Play once, allow the microphone,
+  then say the book and parser-verified starting point you want. Visible choices
+  remain available when Realtime or microphone access is unavailable.
 
 ### Read and navigate
 
@@ -91,6 +98,13 @@ Playback uses an incrementing token to invalidate old asynchronous work. This
 prevents a late network response or old `onended` event from starting narration
 after the reader has moved elsewhere.
 
+At a readable section boundary, natural narration stops before speaking the
+next section. The transition names the completed and upcoming sections and
+selects the first sentence of the upcoming section as the saved reading cursor.
+**Continue** starts it; **Pause here** leaves it ready for a returning session.
+Manual Previous, Next, and Contents navigation remain direct controls and do
+not force the transition prompt.
+
 ### Ask the book
 
 The companion sends the current paragraph plus one neighboring paragraph on
@@ -102,11 +116,35 @@ This is intentionally grounded question answering, not full retrieval over the
 entire book yet. Each request is independent; multi-turn chat memory and
 follow-up context have not been added.
 
-The **Talk to this book** panel starts an explicit WebRTC session with the
-Realtime API. Starting it stops narration first. The model receives the current
-passage, nearby paragraphs, and at most 12 recent local transcript turns. Mute
-disables the microphone track; End stops every track and closes the peer and
-event channel without restarting narration.
+The **Ask by voice** button starts an explicit WebRTC session with the Realtime
+API. Starting it stops narration first and freezes the authoritative sentence
+cursor. The model receives that stopped sentence, its paragraph, section,
+physical PDF page, nearby paragraphs, and at most 12 recent local transcript
+turns. It waits for the reader to speak first. Saying Continue or pressing
+**Continue reading** stops every microphone track, closes the voice session,
+and resumes from the same sentence. A conversation started while the book was
+already stopped shows **End voice** and leaves narration stopped.
+
+During the live conversation, the model interprets natural requests through a
+small set of validated tools instead of matching hardcoded phrases. It can
+continue from the exact sentence, repeat the current paragraph, take a note,
+highlight the current sentence or paragraph, or research a question connected
+to the current passage. The browser validates every action and scope before
+changing the authoritative cursor or saving anything.
+
+Notes, highlights, and research are stored locally for the current book. Each
+annotation keeps its exact quote, sentence cursor, and physical PDF page, so it
+can be shown beside the passage and remapped by quote and page after a safe
+re-analysis. Highlights appear directly on the text. Notes and research appear
+under their paragraph; research is clearly labeled as external and retains up
+to eight source links. Research uses the Responses API web-search tool and
+requires `OPENAI_API_KEY`; notes and highlights do not make a second model call.
+
+The microphone is not persistent during ordinary reading. Starting narration,
+choosing another passage, saying Continue or Repeat, or pressing the visible
+voice button ends the voice session before book audio resumes. This keeps book
+narration and companion audio mutually exclusive while a reliable full-duplex
+design is deferred.
 
 ### Continue where you stopped
 
@@ -117,9 +155,29 @@ For each book, the browser stores:
 - browser or OpenAI narration mode; and
 - the time the session was last updated.
 
-When a saved position differs from the default opening passage, the reader
-offers a **Continue where you left off** prompt. This data currently lives only
-in that browser's `localStorage`; it is not synchronized between devices.
+When a saved position exists, the returning-reader prompt identifies the saved
+section, physical PDF page, and approximate progress through that section. The
+reader can start over, request a short passage-grounded recap when OpenAI is
+configured, or continue narration from the exact saved sentence.
+
+On localhost, the sidebar includes **New reader** and **Returning reader** test
+views. **New reader** ignores saved browser state on every reload without
+deleting it. **Returning reader** uses that same saved state, so the two flows
+can be tested repeatedly without clearing browser storage. These views are also
+available directly at `?session=new` and `?session=returning`.
+
+Saved data currently lives only in that browser's `localStorage`; it is not
+synchronized between devices.
+
+### Re-analyze an existing book
+
+**Re-analyze book** runs the current parser and opening mapper against the
+original uploaded PDF. The old index remains active until the replacement has
+been extracted, mapped, and validated successfully. The reader then remaps the
+saved cursor by physical PDF page and exact sentence text. If that sentence is
+now classified as non-readable, the cursor moves to the nearest eligible
+passage and the UI reports that adjustment. The original PDF is never replaced
+or deleted by this action.
 
 ## Current local demo
 
@@ -179,6 +237,14 @@ For each physical page, the parser:
 This produces one JSON document per book. The document is written atomically
 and cached in memory after loading.
 
+For a newly uploaded PDF with no publisher outline, a configured OpenAI text
+model examines extracted text from at most the first 15 pages, expanding once
+to 30 pages when necessary. It proposes only the optional opening sections and
+the first main section. The server applies a proposal only when every marker
+quotes exact text found on the claimed physical PDF page. Otherwise the
+existing extracted reading order is preserved and `opening_plan.status` is
+`review_required`. The model never rewrites narration text.
+
 ### Book index schema
 
 The top-level document contains:
@@ -187,6 +253,7 @@ The top-level document contains:
 book
 ├── metadata: id, title, author, source filename, source SHA-256
 ├── counts: pages, words, sections, paragraphs, segments
+├── opening_plan: mapping method, status, evidence, and scanned-page bound
 ├── reading_order: first eligible, preface, introduction, and main-text cursors
 ├── sections[]: outline title, depth, page/segment range, and reading role
 ├── pages[]: paragraph and segment ranges for each physical page
@@ -215,6 +282,7 @@ Talking_book/
 ├── AGENTS.md                  Agent and engineering instructions
 ├── PROJECT.md                 Current scope, plan, status, and next task
 ├── app/
+│   ├── book_mapper.py          Source-validated opening map for unbookmarked books
 │   ├── main.py                 FastAPI routes and OpenAI integrations
 │   ├── parser.py               Page-aware PDF extraction pipeline
 │   └── store.py                Atomic JSON book store with in-memory cache
@@ -248,7 +316,8 @@ Talking_book/
 - A modern browser with JavaScript enabled.
 - Node.js only if you want to run the JavaScript tests. The current environment
   uses Node.js 23.11.0.
-- An OpenAI API key only for explanations, OpenAI narration, and live voice.
+- An OpenAI API key only for model-guided opening maps, explanations, OpenAI
+  narration, and live voice.
 
 ### 1. Create and activate the virtual environment
 
@@ -313,8 +382,9 @@ JavaScript or returned by `/api/config`. `.env` is ignored by Git. Restart the
 server after changing it.
 
 If you leave the key empty, uploading, extraction, reading, navigation, saved
-progress, and browser narration continue to work. AI explanations, OpenAI
-narration, and live voice are disabled.
+progress, and browser narration continue to work. Outline-free books keep the
+parser's fallback opening and are marked for review. Model-guided opening maps,
+AI explanations, OpenAI narration, and live voice are disabled.
 
 ### 4. Start the app
 
@@ -336,15 +406,22 @@ Stop the server with `Ctrl+C`.
 ## Using the app
 
 1. Open the local URL.
-2. Choose an existing book from **Library**, or click **Upload PDF**.
-3. Wait while the PDF is extracted. Large books can take around a minute or
+2. On a first visit with multiple books, press Play once, allow the microphone,
+   and say which book you want. Returning readers open at their most recent book
+   automatically.
+3. Say whether to read the recommended preface/introduction or skip to the
+   mapped main chapter. The visible choices are fallbacks. With one book, the
+   app begins directly at this opening choice.
+4. Alternatively, choose another existing book from **Library**, or click
+   **Upload PDF**.
+5. Wait while a new PDF is extracted. Large books can take around a minute or
    longer depending on the machine and document complexity.
-4. Choose a chapter from **Contents**.
-5. Click a sentence and press Play.
-6. Use Previous, Pause, Continue, Next, Repeat paragraph, and Speed as needed.
-7. Enable **OpenAI voice** when a key is configured and cloud narration is
+6. Choose a chapter from **Contents** when you want to navigate manually.
+7. Click a sentence and press Play.
+8. Use Previous, Pause, Continue, Next, Repeat paragraph, and Speed as needed.
+9. Enable **OpenAI voice** when a key is configured and cloud narration is
    desired.
-8. Type a question in **Book companion** to ask about the selected passage.
+10. Use the microphone to ask about the selected passage.
 
 Uploading the same PDF again returns the existing book instead of parsing a
 duplicate, based on the file's SHA-256 digest.
@@ -403,8 +480,8 @@ Upload rules:
 
 | Environment variable | Default | Purpose |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | empty | Enables explanations, OpenAI speech generation, and live voice. |
-| `OPENAI_TEXT_MODEL` | `gpt-5.6-luna` | Model used by the passage companion. |
+| `OPENAI_API_KEY` | empty | Enables source-validated opening maps, explanations, OpenAI speech generation, and live voice. |
+| `OPENAI_TEXT_MODEL` | `gpt-5.6-luna` | Model used by the opening mapper and passage companion. |
 | `OPENAI_TTS_MODEL` | `tts-1` | Model used for generated narration. |
 | `OPENAI_REALTIME_MODEL` | `gpt-realtime-2.1` | Model used for live voice conversation. |
 | `OPENAI_REALTIME_VOICE` | `marin` | Voice used by the live companion. |
@@ -422,15 +499,16 @@ node --check static/app.js
 Current verified result:
 
 ```text
-Python:     20 passed
-JavaScript: 11 passed
+Python:     34 passed
+JavaScript: 20 passed
 Syntax:     static/app.js valid
 ```
 
 The Python suite covers paragraph inference, dehyphenation, sentence splitting,
-golden reading-role and start-cursor expectations, book endpoints, missing-key
-behavior, grounded prompt construction, speech generation caching, and invalid
-upload rejection. The JavaScript suite also verifies that narration skips
+source-validated opening maps and safe fallbacks, golden reading-role and
+start-cursor expectations, book endpoints, missing-key behavior, grounded
+prompt construction, speech generation caching, and invalid upload rejection.
+The JavaScript suite also verifies that narration skips
 non-readable segments, honors explicit preface and main-text start cursors, and
 checks the live voice lifecycle and bounded transcript-memory helpers.
 
@@ -455,6 +533,10 @@ bytecode compilation. The project rules that guide coding agents live in
   Do not expose it directly to the public internet.
 - Uploaded PDFs and extracted text stay under `data/` unless an OpenAI feature
   is used.
+- When an API key is configured, uploading an outline-free book sends extracted
+  text from at most its first 30 physical PDF pages to the configured OpenAI
+  text model so the opening can be mapped. The response is not stored by the
+  API request, and proposed markers are checked against local source text.
 - Asking a question sends the nearby extracted passage and the reader's question
   to the configured OpenAI API.
 - OpenAI narration sends one sentence at a time to the configured speech model.
@@ -467,26 +549,27 @@ bytecode compilation. The project rules that guide coding agents live in
 
 - Only PDF uploads are accepted; EPUB and other ebook formats are not supported.
 - Scanned-image PDFs do not have OCR support and may produce little or no text.
-- The reader currently relies on a usable publisher PDF outline for chapter
-  navigation. Outline-free PDFs need a generated-section fallback.
+- Outline-free novels and general nonfiction can receive a verified opening
+  section from the model, but later chapter boundaries are not mapped yet.
 - Layout reconstruction is heuristic. Headers, captions, footnotes, marginalia,
   and multi-column pages can be classified incorrectly.
 - Paragraphs split across physical page boundaries are not joined.
 - Outline-classified table-of-contents and front-matter sections are excluded
   from narration, but captions and other non-prose blocks within chapters can
   still be read.
-- The first-session flow offers a detected preface or the main text, but it does
-  not yet provide outside background about the book.
+- The hands-free first-session welcome requires Realtime and microphone access;
+  browser speech plus visible book and opening choices remain as fallbacks.
 - English sentence segmentation is configured; multilingual books need language
   detection and appropriate segmenters.
 - The OpenAI narration voice is fixed to `alloy`; there is no voice picker yet.
 - The companion sees a small local context window, not the whole book. Live
   voice keeps only 12 transcript turns per book in that browser.
-- No web search, external reviews, or real-time commentary retrieval exists yet.
-- Live microphone conversation requires an explicit Start action. Wake words
-  and spoken playback commands do not exist yet.
-- Bookmarks, highlights, notes, sleep timer, reading goals, and cross-device sync
-  are not implemented.
+- Microphone use requires the explicit Ask by voice action and ends before book
+  narration resumes. Persistent listening, wake words, relative or semantic
+  navigation, and other controls do not exist yet.
+- Notes, highlights, and research are local to one browser and cannot yet be
+  edited, deleted, exported, or synchronized. Bookmarks, sleep timers, and
+  reading goals are not implemented.
 - There is no delete-book UI, user account system, database, background job
   queue, deployment configuration, or production observability.
 - The visible sidebar-collapse control is not wired up yet.
@@ -504,16 +587,19 @@ reliable before adding autonomous voice controls.
 - pause/continue, sentence navigation, paragraph repeat, and speed control;
 - playback status, cancellation, prefetch, and caching safeguards;
 - per-book progress and preference persistence;
-- grounded “Explain this” interaction; and
+- grounded “Explain this” interaction;
+- passage-anchored notes, highlights, and sourced research; and
 - automated parser, API, and playback-helper tests.
 
 ### Verified: live conversation
 
-- a real-key browser smoke test covers start, interruption, mute/unmute,
-  transcript memory, passage grounding, stop, and media release;
-- the companion answered aloud from the current page context; and
-- the session ended without resuming narration or leaving an active media
-  source.
+- API and JavaScript regressions verify exact stopped-sentence grounding,
+  on-demand silence, validated Continue/Repeat actions, transcript memory, and
+  media cleanup;
+- a no-permission browser check verifies the visible Ask by voice control and
+  removal of persistent listening without console errors; and
+- the current on-demand loop still needs the real-key manual check in
+  `docs/SMOKE_TEST.md`.
 
 ### Current focus: extraction trust
 
@@ -525,14 +611,18 @@ reliable before adding autonomous voice controls.
 
 ### Implemented: first-time reading experience
 
-- identify the one available book and its author;
-- offer the preface when one is detected;
-- begin at the first eligible main-text segment when the preface is skipped; and
+- welcome a first-time reader and ask them to choose when multiple books exist;
+- open the latest started book for a returning reader;
+- identify the selected book and its author;
+- recommend a detected preface or introduction and the opening sections that
+  follow it;
+- offer a separate direct start at the first eligible main-text segment; and
 - keep the current sentence and physical page visible and correct.
 
 ### Later: reader comfort and memory
 
-- bookmarks with optional notes;
+- annotation editing, deletion, export, and synchronization;
+- bookmarks;
 - voice selection for OpenAI narration;
 - convenient speed presets;
 - sleep timer and stop-at-end-of-chapter option; and
@@ -546,14 +636,11 @@ reliable before adding autonomous voice controls.
 - multi-turn follow-up questions tied to a passage; and
 - book-wide retrieval when the local paragraph window is insufficient.
 
-### Later: spoken controls and research
+### Later: broader spoken and research capabilities
 
-- microphone controls such as “wait,” “continue,” “repeat that,” and “explain
-  this”;
 - wake-word activation and hands-free session control;
-- optional real-time web research for reviews, historical context, and other
-  readers' interpretations, clearly separated from claims in the book;
-- conversation history and saved insights; and
+- book-wide retrieval and semantic voice navigation;
+- richer conversation history and saved-insight review; and
 - accounts, synchronization, production storage, background extraction jobs,
   deployment, and monitoring.
 
@@ -564,6 +651,6 @@ select a chapter and sentence, listen continuously, interrupt or navigate
 without overlapping audio, return to the saved position, and ask for a grounded
 explanation of the current passage. That milestone is implemented and tested.
 
-The next meaningful milestone is a trustworthy first reading session for one
-local reader and one book. Durable memory, richer passage actions, and spoken
-commands come only after extraction and reading-start behavior are dependable.
+The next meaningful milestone is validating the voice-first welcome and
+annotation flows with real readers while continuing to close the frozen parser
+benchmark gaps without book-specific rules.

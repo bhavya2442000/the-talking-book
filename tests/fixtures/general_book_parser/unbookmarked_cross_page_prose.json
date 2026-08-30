@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "id": "unbookmarked_cross_page_prose",
+  "description": "An unbookmarked novel with repeated headers and a sentence crossing pages.",
+  "license": {
+    "kind": "CC0 synthetic",
+    "redistributable": true,
+    "notes": "All text was generated for parser evaluation."
+  },
+  "document": {
+    "title": "A Synthetic Journey",
+    "author": "Example Author",
+    "pages": [
+      {"number": 1, "lines": [
+        {"text": "A SYNTHETIC JOURNEY", "x": 230, "y": 760, "size": 9},
+        {"text": "Chapter One", "x": 220, "y": 690, "size": 20, "font": "bold"},
+        {"text": "The journey begins on a rain-washed morning and", "x": 86.4, "y": 640, "size": 14.4}
+      ]},
+      {"number": 2, "lines": [
+        {"text": "A SYNTHETIC JOURNEY", "x": 230, "y": 760, "size": 9},
+        {"text": "continues across the next page without a pause.", "x": 72, "y": 690, "size": 14.4},
+        {"text": "A second paragraph begins after the completed thought.", "x": 86.4, "y": 640, "size": 14.4}
+      ]},
+      {"number": 3, "lines": [
+        {"text": "Chapter Two", "x": 220, "y": 690, "size": 20, "font": "bold"},
+        {"text": "Another chapter opens under a clear sky.", "x": 86.4, "y": 640, "size": 14.4}
+      ]}
+    ],
+    "outline": []
+  },
+  "expectations": {
+    "bbox_required": true,
+    "blocks": [
+      {"text": "A SYNTHETIC JOURNEY", "present": false},
+      {"text": "Chapter One", "block_type": "heading", "reading_role": "main", "narration_eligible": true, "pages": [1]},
+      {"text": "The journey begins on a rain-washed morning and continues across the next page without a pause.", "block_type": "prose", "reading_role": "main", "narration_eligible": true, "pages": [1, 2]},
+      {"text": "Chapter Two", "block_type": "heading", "reading_role": "main", "narration_eligible": true, "pages": [3]}
+    ],
+    "reading_order": [
+      "Chapter One",
+      "The journey begins on a rain-washed morning and continues across the next page without a pause.",
+      "A second paragraph begins after the completed thought.",
+      "Chapter Two",
+      "Another chapter opens under a clear sky."
+    ],
+    "sections": [
+      {"title": "Chapter One", "page_start": 1, "reading_role": "main", "narration_eligible": true},
+      {"title": "Chapter Two", "page_start": 3, "reading_role": "main", "narration_eligible": true}
+    ],
+    "starts": {
+      "first_eligible": "Chapter One",
+      "main_text": "Chapter One"
+    },
+    "spans": [
+      {"text": "The journey begins on a rain-washed morning and continues across the next page without a pause.", "pages": [1, 2]}
+    ],
+    "uncertainties": []
+  }
+}

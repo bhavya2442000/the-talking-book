@@ -1,0 +1,2 @@
+-r requirements-dev.txt
+docling==2.122.0

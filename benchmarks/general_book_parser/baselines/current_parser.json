@@ -1,0 +1,95 @@
+{
+  "adapter": {
+    "name": "current-parser",
+    "version": "1"
+  },
+  "fixture_count": 5,
+  "fixtures": [
+    {
+      "adapter_status": "completed",
+      "checks": 62,
+      "failed": 8,
+      "fixture_id": "outline_and_layout_risks",
+      "issue_counts": {
+        "bbox_coverage": 1,
+        "block_block_type": 3,
+        "block_presence": 2,
+        "reading_order": 1,
+        "source_span_pages": 1
+      },
+      "passed": 54,
+      "uncertainty_codes": []
+    },
+    {
+      "adapter_status": "completed",
+      "checks": 47,
+      "failed": 10,
+      "fixture_id": "foreword_prologue_structure",
+      "issue_counts": {
+        "bbox_coverage": 1,
+        "block_block_type": 4,
+        "block_reading_role": 2,
+        "section_reading_role": 2,
+        "start_text": 1
+      },
+      "passed": 37,
+      "uncertainty_codes": []
+    },
+    {
+      "adapter_status": "completed",
+      "checks": 19,
+      "failed": 11,
+      "fixture_id": "unbookmarked_cross_page_prose",
+      "issue_counts": {
+        "bbox_coverage": 1,
+        "block_block_type": 2,
+        "block_presence": 2,
+        "reading_order": 1,
+        "section_presence": 2,
+        "source_span_pages": 1,
+        "start_text": 2
+      },
+      "passed": 8,
+      "uncertainty_codes": []
+    },
+    {
+      "adapter_status": "completed",
+      "checks": 45,
+      "failed": 5,
+      "fixture_id": "two_column_textbook",
+      "issue_counts": {
+        "bbox_coverage": 1,
+        "block_block_type": 3,
+        "reading_order": 1
+      },
+      "passed": 40,
+      "uncertainty_codes": []
+    },
+    {
+      "adapter_status": "unsupported",
+      "checks": 10,
+      "failed": 10,
+      "fixture_id": "image_only_scanned_page",
+      "issue_counts": {
+        "adapter_status": 1,
+        "bbox_coverage": 1,
+        "block_presence": 3,
+        "reading_order": 1,
+        "section_presence": 1,
+        "source_span_pages": 1,
+        "start_text": 2
+      },
+      "passed": 0,
+      "uncertainty_codes": [
+        "ocr_required"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "summary": {
+    "checks": 183,
+    "failed": 44,
+    "fixtures_with_gaps": 5,
+    "passed": 139
+  }
+}
