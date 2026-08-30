@@ -101,13 +101,13 @@ button, label[for], select { cursor: pointer; }
 .app-shell {
   min-height: calc(100vh - 70px);
   display: grid;
-  grid-template-columns: 270px minmax(420px, 1fr) 330px;
+  grid-template-columns: 270px minmax(420px, 1fr);
   padding-bottom: 110px;
 }
 
 .sidebar, .companion { position: sticky; top: 70px; height: calc(100vh - 70px - 96px); overflow: auto; }
 .sidebar { padding: 28px 20px; border-right: 1px solid var(--line); }
-.companion { padding: 32px 26px; border-left: 1px solid var(--line); background: rgba(255, 253, 248, .56); }
+.companion { display: none; }
 .field-label { display: block; margin-bottom: 8px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .book-select, textarea {
   width: 100%;
@@ -121,6 +121,20 @@ textarea { resize: vertical; padding: 12px; line-height: 1.5; }
 textarea:focus, select:focus { outline: 3px solid rgba(216, 90, 55, .16); border-color: var(--accent); }
 .book-summary { min-height: 72px; padding: 8px 3px 16px; color: var(--muted); font-size: 13px; }
 .book-summary p { margin: 5px 0; }
+.session-test-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 10px;
+  border: 1px dashed #c5bfae;
+  border-radius: 10px;
+  font-size: 11px;
+}
+.session-test-controls span { width: 100%; color: var(--muted); font-weight: 700; text-transform: uppercase; }
+.session-test-controls a { padding: 5px 8px; border-radius: 999px; color: var(--forest); background: #edf7f1; text-decoration: none; }
+.session-test-controls a.active { color: white; background: var(--forest); }
+.reindex-button { margin: 0 0 14px; padding: 0; align-self: flex-start; }
 .toc-heading { display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-weight: 700; }
 .icon-button { border: 0; color: var(--muted); background: transparent; }
 .toc { display: grid; gap: 3px; }
@@ -133,7 +147,7 @@ textarea:focus, select:focus { outline: 3px solid rgba(216, 90, 55, .16); border
 .reader-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 30px; max-width: 760px; margin: 0 auto 42px; }
 .reader-header h1 { margin: 8px 0 0; font: 600 clamp(32px, 4vw, 50px)/1.1 "Literata", serif; letter-spacing: -.035em; }
 .page-badge { flex: none; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; }
-.resume-prompt, .start-prompt {
+.resume-prompt, .start-prompt, .chapter-transition {
   max-width: 760px;
   display: flex;
   align-items: center;
@@ -147,9 +161,36 @@ textarea:focus, select:focus { outline: 3px solid rgba(216, 90, 55, .16); border
   box-shadow: 0 8px 24px rgba(67, 55, 18, .07);
 }
 .start-prompt { border-color: #9ebcac; background: #edf7f1; }
-.resume-prompt > div:first-child, .start-prompt > div:first-child { display: grid; gap: 3px; }
-.resume-prompt strong, .start-prompt strong { font-size: 14px; }
-.resume-prompt span, .start-prompt span { color: #52645b; font-size: 12px; }
+.chapter-transition { border-color: #9ebcac; background: #edf7f1; }
+.library-welcome {
+  max-width: 760px;
+  margin: -18px auto 36px;
+  padding: clamp(22px, 4vw, 34px);
+  border: 1px solid #9ebcac;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #edf7f1, #fffaf0);
+  box-shadow: 0 18px 48px rgba(30, 58, 45, .09);
+}
+.library-welcome > div:first-child { display: grid; gap: 7px; }
+.library-welcome > div:first-child > strong { font: 600 25px/1.2 "Literata", serif; }
+.library-welcome p { margin: 0; color: #52645b; font-size: 13px; line-height: 1.55; }
+.welcome-book-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 22px; }
+.welcome-book-choice {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid #b8cdc1;
+  border-radius: 12px;
+  text-align: left;
+  background: rgba(255, 255, 255, .76);
+}
+.welcome-book-choice:hover { border-color: var(--forest); background: white; transform: translateY(-1px); }
+.welcome-book-choice strong { font: 600 16px/1.25 "Literata", serif; }
+.welcome-book-choice span { color: var(--muted); font-size: 12px; }
+.resume-prompt > div:first-child, .start-prompt > div:first-child, .chapter-transition > div:first-child { display: grid; gap: 3px; }
+.resume-prompt strong, .start-prompt strong, .chapter-transition strong { font-size: 14px; }
+.resume-prompt span, .start-prompt span, .chapter-transition span { color: #52645b; font-size: 12px; }
+.resume-recap { max-width: 560px; margin: 8px 0 0; color: #3f4945; font-size: 12px; line-height: 1.5; }
 .resume-actions { flex: none; display: flex; align-items: center; gap: 8px; }
 .text-button, .small-button { min-height: 34px; padding: 0 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
 .text-button { border: 0; color: #6a5d2c; background: transparent; }
@@ -159,7 +200,33 @@ textarea:focus, select:focus { outline: 3px solid rgba(216, 90, 55, .16); border
 .segment { border-radius: 5px; transition: background 160ms ease, box-shadow 160ms ease; }
 .segment:hover { background: rgba(255, 240, 186, .45); cursor: pointer; }
 .segment.current { background: var(--highlight); box-shadow: 0 0 0 3px var(--highlight); }
+.segment.annotated-highlight {
+  background: linear-gradient(transparent 48%, rgba(247, 211, 94, .58) 48%);
+}
+.segment.annotated-highlight.current {
+  background: var(--highlight);
+  border-bottom: 3px solid rgba(191, 143, 20, .72);
+}
 .paragraph.heading { margin: 2.2em 0 .8em; font-weight: 600; font-size: 1.22em; }
+.passage-annotations {
+  display: grid;
+  gap: 8px;
+  margin: -2px 0 24px 20px;
+  font-family: Inter, sans-serif;
+}
+.passage-annotation {
+  padding: 12px 14px;
+  border-left: 3px solid #c39a28;
+  border-radius: 0 9px 9px 0;
+  background: rgba(255, 247, 216, .72);
+  color: #3e443f;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.passage-annotation.research { border-left-color: var(--forest); background: rgba(224, 236, 229, .68); }
+.passage-annotation p { margin: 5px 0 0; white-space: pre-wrap; }
+.annotation-sources { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; }
+.annotation-sources a { color: var(--forest); font-size: 12px; font-weight: 700; }
 
 .companion h2 { margin: 8px 0 18px; font: 600 25px/1.2 "Literata", serif; }
 .current-text { margin: 0 0 22px; padding: 15px 16px; border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; color: #3f4945; background: rgba(255,255,255,.66); font: 400 14px/1.6 "Literata", serif; }
@@ -238,7 +305,6 @@ textarea:focus, select:focus { outline: 3px solid rgba(216, 90, 55, .16); border
 
 @media (max-width: 1100px) {
   .app-shell { grid-template-columns: 230px 1fr; }
-  .companion { position: relative; top: auto; grid-column: 2; height: auto; border-top: 1px solid var(--line); }
 }
 
 @media (max-width: 760px) {
@@ -247,8 +313,7 @@ textarea:focus, select:focus { outline: 3px solid rgba(216, 90, 55, .16); border
   .app-shell { display: block; }
   .sidebar { position: relative; top: auto; height: auto; max-height: 360px; border-right: 0; border-bottom: 1px solid var(--line); }
   .reader-column { padding: 38px 22px 70px; }
-  .resume-prompt, .start-prompt { align-items: flex-start; flex-direction: column; margin-right: 22px; margin-left: 22px; }
-  .companion { height: auto; border-left: 0; }
+  .resume-prompt, .start-prompt, .chapter-transition, .library-welcome { align-items: flex-start; flex-direction: column; margin-right: 22px; margin-left: 22px; }
   .player { right: 8px; bottom: 8px; left: 8px; grid-template-columns: 1fr auto; padding: 10px 14px; }
   .transport { gap: 5px; }
   .round-button { width: 36px; height: 36px; }

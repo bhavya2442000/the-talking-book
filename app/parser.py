@@ -34,10 +34,14 @@ ProgressCallback = Callable[[int, int], None]
 
 _SPACE_RE = re.compile(r"\s+")
 _PAGE_NUMBER_RE = re.compile(r"^(?:\d{1,4}|[ivxlcdm]{1,8})$", re.IGNORECASE)
+_CAPTION_LABEL_RE = re.compile(
+    r"^(?:(?:fig(?:ure)?|map)\s+\d+|\d+\.)\s*", re.IGNORECASE
+)
 _SENTENCE_SEGMENTER = pysbd.Segmenter(language="en", clean=False)
 
 _FRONT_MATTER_TITLES = re.compile(
-    r"^(?:title page|copyright|dedication|timeline(?: of .*)?|also by|about the author)$"
+    r"^(?:cover|(?:half )?title page|copyright(?: page)?|dedication|"
+    r"timeline(?: of .*)?|also by|about the author)$"
 )
 _PREFACE_TITLES = re.compile(r"^(?:(?:the )?author'?s )?(?:preface|foreword)\b")
 _INTRODUCTION_TITLES = re.compile(r"^(?:general )?introduction\b")
@@ -55,6 +59,13 @@ class LayoutLine:
     x0: float
     x1: float
     font_size: float
+
+
+@dataclass(frozen=True)
+class ParagraphBlock:
+    text: str
+    block_type: str
+    narration_eligible: bool
 
 
 def _clean_text(value: str) -> str:
@@ -159,7 +170,7 @@ def _join_line(previous: str, current: str) -> str:
     return f"{previous} {current}"
 
 
-def _lines_to_paragraphs(lines: list[LayoutLine]) -> list[str]:
+def _lines_to_paragraph_blocks(lines: list[LayoutLine]) -> list[ParagraphBlock]:
     if not lines:
         return []
 
@@ -175,16 +186,28 @@ def _lines_to_paragraphs(lines: list[LayoutLine]) -> list[str]:
     ]
     normal_gap = median(gaps or [body_font * 1.2])
 
-    paragraphs: list[str] = []
+    paragraphs: list[ParagraphBlock] = []
     buffer = ""
+    buffer_lines: list[LayoutLine] = []
     previous: LayoutLine | None = None
 
     def flush() -> None:
-        nonlocal buffer
+        nonlocal buffer, buffer_lines
         cleaned = _clean_text(buffer)
         if cleaned:
-            paragraphs.append(cleaned)
+            block_font = median(line.font_size for line in buffer_lines)
+            is_caption = bool(_CAPTION_LABEL_RE.match(cleaned)) and (
+                block_font <= body_font - 1.0
+            )
+            paragraphs.append(
+                ParagraphBlock(
+                    text=cleaned,
+                    block_type="caption" if is_caption else "prose",
+                    narration_eligible=not is_caption,
+                )
+            )
         buffer = ""
+        buffer_lines = []
 
     for line in lines:
         is_heading = line.font_size >= body_font + 1.4 and len(line.text) <= 140
@@ -196,22 +219,40 @@ def _lines_to_paragraphs(lines: list[LayoutLine]) -> list[str]:
             and previous.font_size >= body_font + 1.4
             and len(previous.text) <= 140
         )
+        continues_small_text = (
+            previous is not None
+            and previous.font_size <= body_font - 1.0
+            and line.font_size <= body_font - 1.0
+            and not large_gap
+        )
 
-        starts_new = bool(buffer) and (is_heading or indented or large_gap or previous_heading)
+        starts_new = bool(buffer) and (
+            is_heading
+            or large_gap
+            or previous_heading
+            or (indented and not continues_small_text)
+        )
         if starts_new:
             flush()
 
         if is_heading:
             buffer = line.text
+            buffer_lines = [line]
             flush()
         elif buffer:
             buffer = _join_line(buffer, line.text)
+            buffer_lines.append(line)
         else:
             buffer = line.text
+            buffer_lines = [line]
         previous = line
 
     flush()
     return paragraphs
+
+
+def _lines_to_paragraphs(lines: list[LayoutLine]) -> list[str]:
+    return [block.text for block in _lines_to_paragraph_blocks(lines)]
 
 
 def _sentences(text: str) -> list[str]:
@@ -309,7 +350,11 @@ def extract_book(
                 reading_role = str(section["reading_role"])
                 narration_eligible = bool(section["narration_eligible"])
 
-            for text in _lines_to_paragraphs(_layout_lines(page)):
+            for block in _lines_to_paragraph_blocks(_layout_lines(page)):
+                text = block.text
+                block_narration_eligible = (
+                    narration_eligible and block.narration_eligible
+                )
                 paragraph_index = len(paragraphs)
                 sentence_start = len(segments)
                 for sentence in _sentences(text):
@@ -320,7 +365,8 @@ def extract_book(
                             "section": section_index,
                             "paragraph": paragraph_index,
                             "reading_role": reading_role,
-                            "narration_eligible": narration_eligible,
+                            "block_type": block.block_type,
+                            "narration_eligible": block_narration_eligible,
                             "text": sentence,
                         }
                     )
@@ -332,7 +378,8 @@ def extract_book(
                         "segment_start": sentence_start,
                         "segment_end": len(segments) - 1,
                         "reading_role": reading_role,
-                        "narration_eligible": narration_eligible,
+                        "block_type": block.block_type,
+                        "narration_eligible": block_narration_eligible,
                         "text": text,
                     }
                 )

@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "id": "outline_and_layout_risks",
+  "description": "Executable registration of the existing sanitized extraction golden cases.",
+  "derived_from": "../extraction_golden.json",
+  "license": {
+    "kind": "CC0 synthetic",
+    "redistributable": true,
+    "notes": "Contains generated prose and no copyrighted book text."
+  },
+  "document": {
+    "title": "Synthetic Book",
+    "author": "Example Author",
+    "pages": [
+      {
+        "number": 1,
+        "lines": [
+          {"text": "Title Page", "x": 220, "y": 650, "size": 20, "font": "bold"}
+        ]
+      },
+      {
+        "number": 2,
+        "lines": [
+          {"text": "Copyright", "x": 72, "y": 650, "size": 14.4}
+        ]
+      },
+      {
+        "number": 3,
+        "lines": [
+          {"text": "Contents", "x": 220, "y": 680, "size": 20, "font": "bold"},
+          {"text": "The First Chapter ........ 10", "x": 72, "y": 630, "size": 14.4}
+        ]
+      },
+      {
+        "number": 5,
+        "lines": [
+          {"text": "Preface", "x": 230, "y": 680, "size": 20, "font": "bold"},
+          {"text": "A synthetic preface begins here.", "x": 86.4, "y": 630, "size": 14.4}
+        ]
+      },
+      {
+        "number": 7,
+        "lines": [
+          {"text": "Introduction", "x": 210, "y": 680, "size": 20, "font": "bold"},
+          {"text": "A synthetic introduction begins here.", "x": 86.4, "y": 630, "size": 14.4}
+        ]
+      },
+      {
+        "number": 9,
+        "lines": [
+          {"text": "Part One: Beginnings", "x": 190, "y": 680, "size": 20, "font": "bold"}
+        ]
+      },
+      {
+        "number": 10,
+        "lines": [
+          {"text": "10", "x": 300, "y": 775, "size": 10.8},
+          {"text": "The First Chapter", "x": 200, "y": 680, "size": 20, "font": "bold"},
+          {"text": "The first main paragraph begins here.", "x": 86.4, "y": 630, "size": 14.4}
+        ]
+      },
+      {
+        "number": 11,
+        "lines": [
+          {"text": "SYNTHETIC BOOK TITLE", "x": 220, "y": 760, "size": 9},
+          {"text": "Ordinary narration continues on this page.", "x": 86.4, "y": 680, "size": 14.4}
+        ]
+      },
+      {
+        "number": 12,
+        "lines": [
+          {"text": "The paragraph begins on one physical page and", "x": 86.4, "y": 680, "size": 14.4},
+          {"text": "Figure 1. A synthetic example.", "x": 190, "y": 500, "size": 10.8}
+        ]
+      },
+      {
+        "number": 13,
+        "lines": [
+          {"text": "continues on the next without a semantic break.", "x": 72, "y": 680, "size": 14.4}
+        ]
+      },
+      {
+        "number": 30,
+        "lines": [
+          {"text": "Afterword", "x": 220, "y": 680, "size": 20, "font": "bold"}
+        ]
+      },
+      {
+        "number": 32,
+        "lines": [
+          {"text": "Notes", "x": 250, "y": 680, "size": 20, "font": "bold"}
+        ]
+      },
+      {
+        "number": 36,
+        "lines": [
+          {"text": "Image Credits", "x": 220, "y": 680, "size": 20, "font": "bold"}
+        ]
+      }
+    ],
+    "outline": [
+      {"title": "Title Page", "page": 1, "level": 0},
+      {"title": "Copyright", "page": 2, "level": 0},
+      {"title": "Contents", "page": 3, "level": 0},
+      {"title": "Preface", "page": 5, "level": 0},
+      {"title": "Introduction", "page": 7, "level": 0},
+      {"title": "Part One: Beginnings", "page": 9, "level": 0},
+      {"title": "1: The First Chapter", "page": 10, "level": 1},
+      {"title": "Afterword", "page": 30, "level": 0},
+      {"title": "Notes", "page": 32, "level": 0},
+      {"title": "Image Credits", "page": 36, "level": 0}
+    ]
+  },
+  "expectations": {
+    "bbox_required": true,
+    "blocks": [
+      {"text": "Title Page", "block_type": "title", "reading_role": "front_matter", "narration_eligible": false, "pages": [1]},
+      {"text": "Copyright", "block_type": "copyright", "reading_role": "front_matter", "narration_eligible": false, "pages": [2]},
+      {"text": "Contents", "block_type": "contents", "reading_role": "contents", "narration_eligible": false, "pages": [3]},
+      {"text": "10", "present": false},
+      {"text": "SYNTHETIC BOOK TITLE", "present": false},
+      {"text": "Figure 1. A synthetic example.", "block_type": "caption", "reading_role": "main", "narration_eligible": false, "pages": [12]},
+      {"text": "The paragraph begins on one physical page and continues on the next without a semantic break.", "block_type": "prose", "reading_role": "main", "narration_eligible": true, "pages": [12, 13]}
+    ],
+    "reading_order": [
+      "Preface",
+      "A synthetic preface begins here.",
+      "Introduction",
+      "A synthetic introduction begins here.",
+      "The First Chapter",
+      "The first main paragraph begins here.",
+      "Ordinary narration continues on this page.",
+      "The paragraph begins on one physical page and continues on the next without a semantic break."
+    ],
+    "sections": [
+      {"title": "Title Page", "page_start": 1, "reading_role": "front_matter", "narration_eligible": false},
+      {"title": "Copyright", "page_start": 2, "reading_role": "front_matter", "narration_eligible": false},
+      {"title": "Contents", "page_start": 3, "reading_role": "contents", "narration_eligible": false},
+      {"title": "Preface", "page_start": 5, "reading_role": "preface", "narration_eligible": true},
+      {"title": "Introduction", "page_start": 7, "reading_role": "introduction", "narration_eligible": true},
+      {"title": "Part One: Beginnings", "page_start": 9, "reading_role": "main", "narration_eligible": true},
+      {"title": "1: The First Chapter", "page_start": 10, "reading_role": "main", "narration_eligible": true},
+      {"title": "Notes", "page_start": 32, "reading_role": "back_matter", "narration_eligible": false}
+    ],
+    "starts": {
+      "first_eligible": "Preface",
+      "preface": "Preface",
+      "introduction": "Introduction",
+      "main_text": "The First Chapter"
+    },
+    "spans": [
+      {"text": "The paragraph begins on one physical page and continues on the next without a semantic break.", "pages": [12, 13]}
+    ],
+    "uncertainties": []
+  }
+}

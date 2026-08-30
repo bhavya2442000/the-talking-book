@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "image_only_scanned_page",
+  "description": "A raster-only page with visible synthetic text and no embedded PDF text layer.",
+  "license": {
+    "kind": "CC0 synthetic",
+    "redistributable": true,
+    "notes": "The bitmap font, text, and page image are generated locally at benchmark time."
+  },
+  "document": {
+    "title": "Synthetic Scanned Book",
+    "author": "Example Author",
+    "pages": [
+      {
+        "number": 1,
+        "raster_lines": [
+          "CHAPTER ONE",
+          "A SCANNED PAGE",
+          "BEGINS HERE"
+        ]
+      }
+    ],
+    "outline": []
+  },
+  "expectations": {
+    "status": "completed",
+    "bbox_required": true,
+    "blocks": [
+      {"text": "CHAPTER ONE", "block_type": "heading", "reading_role": "main", "narration_eligible": true, "pages": [1]},
+      {"text": "A SCANNED PAGE", "block_type": "prose", "reading_role": "main", "narration_eligible": true, "pages": [1]},
+      {"text": "BEGINS HERE", "block_type": "prose", "reading_role": "main", "narration_eligible": true, "pages": [1]}
+    ],
+    "reading_order": [
+      "CHAPTER ONE",
+      "A SCANNED PAGE",
+      "BEGINS HERE"
+    ],
+    "sections": [
+      {"title": "CHAPTER ONE", "page_start": 1, "reading_role": "main", "narration_eligible": true}
+    ],
+    "starts": {
+      "first_eligible": "CHAPTER ONE",
+      "main_text": "CHAPTER ONE"
+    },
+    "spans": [
+      {"text": "A SCANNED PAGE", "pages": [1]}
+    ],
+    "uncertainties": []
+  }
+}
