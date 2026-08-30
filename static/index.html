@@ -106,37 +106,6 @@
         <article id="reader" class="reader" aria-live="polite"></article>
       </section>
 
-      <aside class="companion">
-        <span class="eyebrow">Book companion</span>
-        <h2>Ask about this passage</h2>
-        <blockquote id="currentText" class="current-text">Choose a sentence to begin.</blockquote>
-        <form id="questionForm">
-          <label class="field-label" for="question">Your question</label>
-          <textarea id="question" rows="4" placeholder="Explain this in simpler language…"></textarea>
-          <button id="askButton" class="primary-button full-width" type="submit">Explain this</button>
-        </form>
-        <div id="answer" class="answer" aria-live="polite"></div>
-        <section class="voice-card" aria-labelledby="voiceHeading">
-          <div class="voice-card-heading">
-            <div>
-              <span class="eyebrow">On-demand voice</span>
-              <h2 id="voiceHeading">Ask about this passage</h2>
-            </div>
-            <span id="voiceStatus" class="voice-status" data-state="disconnected">Ready</span>
-          </div>
-          <p id="voiceMessage" class="voice-message" aria-live="polite">Ask by voice when you want to pause at this sentence.</p>
-          <div class="voice-memory-heading">
-            <span>Recent memory</span>
-            <button id="clearVoiceMemoryButton" class="text-button" type="button" disabled>Clear</button>
-          </div>
-          <div id="voiceTranscript" class="voice-transcript" aria-live="polite"></div>
-          <p class="voice-privacy">Your microphone is sent to OpenAI only while this session is live. Recent transcripts stay in this browser and are limited to 12 turns.</p>
-          <audio id="assistantAudio" autoplay hidden></audio>
-        </section>
-        <div id="apiNotice" class="api-notice" hidden>
-          Browser narration is ready. Add an OpenAI API key to enable explanations, cloud voices, and live book conversation.
-        </div>
-      </aside>
     </main>
 
     <section id="player" class="player" hidden aria-label="Narration controls">
@@ -168,6 +137,7 @@
       </div>
     </section>
 
-    <script type="module" src="/static/app.js?v=19"></script>
+    <audio id="assistantAudio" autoplay hidden></audio>
+    <script type="module" src="/static/app.js?v=20"></script>
   </body>
 </html>

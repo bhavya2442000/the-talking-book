@@ -8,33 +8,16 @@ import {
   completedWelcomeAction,
   completedVoiceTurn,
   sanitizeVoiceTurns,
-  shouldInterruptNarration,
   shouldCreateInitialVoiceResponse,
-  shouldKeepVoiceForPlayback,
-  shouldPauseNarrationForVoiceStart,
   shouldResumeAfterVoice,
   transitionVoiceState,
   voiceMemoryKey,
   welcomeOpeningDecisionEvents,
 } from "../static/voice_session_core.mjs";
 
-test("persistent microphone internals remain isolated from on-demand voice", () => {
-  assert.equal(shouldKeepVoiceForPlayback(true), true);
-  assert.equal(shouldKeepVoiceForPlayback(false), false);
-  assert.equal(shouldInterruptNarration(true, "playing"), true);
-  assert.equal(shouldInterruptNarration(true, "loading"), true);
-  assert.equal(shouldInterruptNarration(true, "paused"), false);
-  assert.equal(shouldInterruptNarration(false, "playing"), false);
-  assert.equal(shouldCreateInitialVoiceResponse(true), false);
-  assert.equal(shouldCreateInitialVoiceResponse(false), false);
-  assert.equal(shouldCreateInitialVoiceResponse(true, true), true);
-  assert.equal(shouldPauseNarrationForVoiceStart(true), false);
-  assert.equal(shouldPauseNarrationForVoiceStart(false), true);
-});
-
 test("on-demand voice waits silently for the reader while welcome speaks first", () => {
-  assert.equal(shouldCreateInitialVoiceResponse(false, false), false);
-  assert.equal(shouldCreateInitialVoiceResponse(false, true), true);
+  assert.equal(shouldCreateInitialVoiceResponse(false), false);
+  assert.equal(shouldCreateInitialVoiceResponse(true), true);
 });
 
 test("welcome tool accepts only real books and valid two-stage choices", () => {
@@ -177,17 +160,13 @@ test("one reader-control contract validates supported model plans", () => {
   }), null);
 });
 
-test("voice lifecycle follows explicit start, mute, stop, and retry states", () => {
+test("voice lifecycle follows explicit start, stop, and retry states", () => {
   let state = VOICE_STATES.DISCONNECTED;
   state = transitionVoiceState(state, "START");
   assert.equal(state, VOICE_STATES.REQUESTING);
   state = transitionVoiceState(state, "PERMISSION_GRANTED");
   assert.equal(state, VOICE_STATES.CONNECTING);
   state = transitionVoiceState(state, "CONNECTED");
-  assert.equal(state, VOICE_STATES.LISTENING);
-  state = transitionVoiceState(state, "MUTE");
-  assert.equal(state, VOICE_STATES.MUTED);
-  state = transitionVoiceState(state, "UNMUTE");
   assert.equal(state, VOICE_STATES.LISTENING);
   state = transitionVoiceState(state, "STOP");
   assert.equal(state, VOICE_STATES.STOPPING);

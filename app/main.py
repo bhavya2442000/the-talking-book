@@ -67,11 +67,6 @@ class LibraryRealtimeSessionRequest(BaseModel):
     recent_turns: list[RealtimeTurn] = Field(default_factory=list, max_length=12)
 
 
-class RealtimeContextRequest(BaseModel):
-    segment_index: int = Field(ge=0)
-    recent_turns: list[RealtimeTurn] = Field(default_factory=list, max_length=12)
-
-
 class ResearchRequest(BaseModel):
     segment_index: int = Field(ge=0)
     scope: Literal["sentence", "paragraph"]
@@ -714,24 +709,6 @@ async def library_realtime_session(
             detail=f"OpenAI Realtime session setup failed ({upstream.status_code}).",
         )
     return Response(content=upstream.text, media_type="application/sdp")
-
-
-@app.post("/api/books/{book_id}/realtime/context")
-def realtime_context(
-    book_id: str,
-    request: RealtimeContextRequest,
-) -> dict[str, Any]:
-    book = _book_or_404(book_id)
-    segment = _segment_or_404(book, request.segment_index)
-    return {
-        "instructions": _realtime_instructions(
-            book,
-            segment,
-            request.recent_turns,
-        ),
-        "tools": _reader_tools(),
-        "tool_choice": "auto",
-    }
 
 
 @app.post("/api/books/{book_id}/speech")

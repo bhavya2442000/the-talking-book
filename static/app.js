@@ -22,14 +22,11 @@ import {
   completedVoiceTurn,
   sanitizeVoiceTurns,
   shouldCreateInitialVoiceResponse,
-  shouldInterruptNarration,
-  shouldKeepVoiceForPlayback,
-  shouldPauseNarrationForVoiceStart,
   shouldResumeAfterVoice,
   transitionVoiceState,
   voiceMemoryKey,
   welcomeOpeningDecisionEvents,
-} from "./voice_session_core.mjs?v=9";
+} from "./voice_session_core.mjs?v=10";
 import {
   annotationAppliesToSegment,
   annotationStorageKey,
@@ -64,11 +61,7 @@ const state = {
     mediaStream: null,
     memory: [],
     resumeNarration: false,
-    persistent: false,
     welcome: false,
-    contextParagraph: null,
-    responseActive: false,
-    companionAudioPlaying: false,
   },
 };
 
@@ -92,7 +85,6 @@ const elements = {
   sectionKicker: $("#sectionKicker"),
   pageBadge: $("#pageBadge"),
   reader: $("#reader"),
-  currentText: $("#currentText"),
   playerText: $("#playerText"),
   playerSection: $("#playerSection"),
   playbackStatus: $("#playbackStatus"),
@@ -105,11 +97,6 @@ const elements = {
   repeatParagraphButton: $("#repeatParagraphButton"),
   rate: $("#rate"),
   rateValue: $("#rateValue"),
-  questionForm: $("#questionForm"),
-  question: $("#question"),
-  askButton: $("#askButton"),
-  answer: $("#answer"),
-  apiNotice: $("#apiNotice"),
   cloudVoiceLabel: $("#cloudVoiceLabel"),
   cloudVoice: $("#cloudVoice"),
   resumePrompt: $("#resumePrompt"),
@@ -131,11 +118,7 @@ const elements = {
   libraryWelcome: $("#libraryWelcome"),
   libraryWelcomeText: $("#libraryWelcomeText"),
   welcomeBookChoices: $("#welcomeBookChoices"),
-  voiceStatus: $("#voiceStatus"),
-  voiceMessage: $("#voiceMessage"),
   startVoiceButton: $("#startVoiceButton"),
-  clearVoiceMemoryButton: $("#clearVoiceMemoryButton"),
-  voiceTranscript: $("#voiceTranscript"),
   assistantAudio: $("#assistantAudio"),
 };
 
@@ -265,7 +248,6 @@ function renderSessionTestControls() {
 async function initialize() {
   try {
     [state.config, state.library] = await Promise.all([api("/api/config"), api("/api/books")]);
-    elements.apiNotice.hidden = state.config.openai_configured;
     elements.cloudVoiceLabel.hidden = !state.config.openai_configured;
     renderSessionTestControls();
     renderLibrary();
@@ -324,7 +306,6 @@ function renderLibraryWelcome() {
   elements.sectionKicker.textContent = "Welcome";
   elements.sectionTitle.textContent = "Choose your first book";
   elements.pageBadge.textContent = `${state.library.length} books`;
-  elements.currentText.textContent = "Choose a book to see its opening passage.";
   elements.playerSection.textContent = "Welcome";
   elements.playerText.textContent = "Press Play to hear your library welcome.";
   elements.progressBar.style.width = "0%";
@@ -573,15 +554,12 @@ function selectSegment(index, { scroll = true, persist = true } = {}) {
   const active = elements.reader.querySelector(`[data-segment="${index}"]`);
   active?.classList.add("current");
   if (scroll) active?.scrollIntoView({ block: "center", behavior: "smooth" });
-  elements.currentText.textContent = segment.text;
   elements.playerText.textContent = segment.text;
   elements.playerSection.textContent = section?.title || state.book.title;
   elements.pageBadge.textContent = `PDF page ${segment.page}`;
-  elements.answer.textContent = "";
   updateChapterProgress();
   updateTransport();
   if (persist) saveSession();
-  refreshPersistentVoiceContext(index);
 }
 
 function updateChapterProgress() {
@@ -716,25 +694,9 @@ function updateTransport() {
 }
 
 function prepareVoiceForPlayback() {
-  if (
-    state.voice.status !== VOICE_STATES.DISCONNECTED
-    && !shouldKeepVoiceForPlayback(state.voice.persistent)
-  ) {
+  if (state.voice.status !== VOICE_STATES.DISCONNECTED) {
     stopVoiceSession();
   }
-}
-
-function silenceVoiceCompanion() {
-  const dataChannel = state.voice.dataChannel;
-  if (!state.voice.persistent || dataChannel?.readyState !== "open") return;
-  if (state.voice.responseActive) {
-    dataChannel.send(JSON.stringify({ type: "response.cancel" }));
-  }
-  if (state.voice.responseActive || state.voice.companionAudioPlaying) {
-    dataChannel.send(JSON.stringify({ type: "output_audio_buffer.clear" }));
-  }
-  state.voice.responseActive = false;
-  state.voice.companionAudioPlaying = false;
 }
 
 function showChapterTransition(transition) {
@@ -807,12 +769,8 @@ async function speakCurrent() {
   if (!state.book) return;
   const segment = state.book.segments[state.segmentIndex];
   if (!segment) return;
-  silenceVoiceCompanion();
   cancelOutputs(true);
   selectSegment(state.segmentIndex);
-  if (state.voice.persistent) {
-    setVoiceMessage("Reading with the microphone live. Speak to pause.");
-  }
   const token = state.token;
 
   const finished = () => {
@@ -1063,57 +1021,24 @@ async function reindexCurrentBook() {
   }
 }
 
-async function askQuestion(event) {
-  event.preventDefault();
-  if (!state.book) return;
-  const question = elements.question.value.trim() || "Explain this passage in clear, simple language.";
-  elements.askButton.disabled = true;
-  elements.answer.className = "answer loading";
-  elements.answer.textContent = "Thinking about the current passage…";
-  try {
-    const result = await api(`/api/books/${state.book.id}/explain`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ segment_index: state.segmentIndex, question }),
-    });
-    elements.answer.className = "answer";
-    elements.answer.textContent = result.answer;
-  } catch (error) {
-    elements.answer.className = "answer";
-    elements.answer.textContent = error.message;
-  } finally {
-    elements.askButton.disabled = false;
-  }
-}
-
-const voiceLabels = {
-  disconnected: "Ready",
-  requesting: "Permission",
-  connecting: "Connecting",
-  listening: "Live",
-  muted: "Muted",
-  stopping: "Ending",
-  error: "Error",
-};
-
 function renderVoiceState() {
   const status = state.voice.status;
   const canEnd = [
     VOICE_STATES.REQUESTING,
     VOICE_STATES.CONNECTING,
     VOICE_STATES.LISTENING,
-    VOICE_STATES.MUTED,
   ].includes(status);
   const configured = Boolean(state.config?.realtime_configured);
-  elements.voiceStatus.textContent = voiceLabels[status] || status;
-  elements.voiceStatus.dataset.state = status;
-  elements.voiceMessage.textContent = state.voice.message;
   elements.startVoiceButton.disabled = status === VOICE_STATES.STOPPING
     || (!canEnd && (!configured || !state.book));
   elements.startVoiceButton.textContent = canEnd
     ? state.voice.resumeNarration ? "Continue reading" : "End voice"
     : status === VOICE_STATES.ERROR ? "Try again" : "Ask by voice";
-  elements.clearVoiceMemoryButton.disabled = !state.voice.memory.length;
+  elements.startVoiceButton.title = state.voice.message;
+  elements.startVoiceButton.setAttribute(
+    "aria-label",
+    elements.startVoiceButton.textContent,
+  );
 }
 
 function applyVoiceEvent(event, message) {
@@ -1135,12 +1060,11 @@ function loadVoiceMemory(bookId) {
   } catch {
     state.voice.memory = [];
   }
-  renderVoiceTranscript();
   renderVoiceState();
 }
 
 function saveVoiceMemory() {
-  if (!state.book) return;
+  if (!state.book || state.voice.welcome) return;
   try {
     localStorage.setItem(
       voiceMemoryKey(state.book.id),
@@ -1151,81 +1075,10 @@ function saveVoiceMemory() {
   }
 }
 
-function renderVoiceTranscript() {
-  elements.voiceTranscript.replaceChildren();
-  if (!state.voice.memory.length) {
-    const empty = document.createElement("p");
-    empty.className = "voice-transcript-empty";
-    empty.textContent = "Your recent voice turns will appear here.";
-    elements.voiceTranscript.append(empty);
-    return;
-  }
-  for (const turn of state.voice.memory) {
-    const item = document.createElement("div");
-    item.className = `voice-turn ${turn.role}`;
-    const role = document.createElement("strong");
-    role.textContent = turn.role === "user" ? "You" : "Book companion";
-    const text = document.createElement("p");
-    text.textContent = turn.text;
-    item.append(role, text);
-    elements.voiceTranscript.append(item);
-  }
-  elements.voiceTranscript.scrollTop = elements.voiceTranscript.scrollHeight;
-}
-
 function rememberVoiceTurn(turn) {
   if (!turn?.text) return;
   state.voice.memory = appendVoiceTurn(state.voice.memory, turn);
   saveVoiceMemory();
-  renderVoiceTranscript();
-  renderVoiceState();
-}
-
-async function refreshPersistentVoiceContext(segmentIndex) {
-  const segment = state.book?.segments[segmentIndex];
-  const dataChannel = state.voice.dataChannel;
-  if (
-    !state.voice.persistent
-    || ["choose_book", "opening"].includes(state.welcomeStage)
-    || !segment
-    || dataChannel?.readyState !== "open"
-    || segment.paragraph === state.voice.contextParagraph
-  ) return;
-
-  const paragraph = segment.paragraph;
-  const token = state.voice.token;
-  state.voice.contextParagraph = paragraph;
-  try {
-    const result = await api(`/api/books/${state.book.id}/realtime/context`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        segment_index: segmentIndex,
-        recent_turns: state.voice.memory,
-      }),
-    });
-    const currentSegment = state.book?.segments[state.segmentIndex];
-    if (
-      token !== state.voice.token
-      || !state.voice.persistent
-      || currentSegment?.paragraph !== paragraph
-      || dataChannel.readyState !== "open"
-    ) return;
-    dataChannel.send(JSON.stringify({
-      type: "session.update",
-      session: {
-        type: "realtime",
-        instructions: result.instructions,
-        tools: result.tools,
-        tool_choice: result.tool_choice,
-      },
-    }));
-  } catch {
-    if (token === state.voice.token && state.voice.persistent) {
-      state.voice.contextParagraph = null;
-      setVoiceMessage("Microphone live, but passage context could not be refreshed.");
-    }
-  }
 }
 
 async function executeWelcomeAction(action) {
@@ -1292,22 +1145,13 @@ async function executeWelcomeAction(action) {
   });
   state.welcomeStage = null;
   state.voice.welcome = false;
+  stopVoiceSession();
+  loadVoiceMemory(state.book.id);
   if (action.start === "recommended") beginRecommendedOpening();
   else beginReading("main_text_segment");
 }
 
 function handleRealtimeEvent(event) {
-  if (event.type === "response.created") {
-    state.voice.responseActive = true;
-  } else if (event.type === "response.done") {
-    state.voice.responseActive = false;
-  } else if (event.type === "output_audio_buffer.started") {
-    state.voice.companionAudioPlaying = true;
-  } else if (event.type === "output_audio_buffer.stopped"
-    || event.type === "output_audio_buffer.cleared") {
-    state.voice.companionAudioPlaying = false;
-  }
-
   const completed = completedVoiceTurn(event);
   if (completed?.text) rememberVoiceTurn(completed);
 
@@ -1335,27 +1179,15 @@ function handleRealtimeEvent(event) {
   }
 
   if (event.type === "input_audio_buffer.speech_started") {
-    if (shouldInterruptNarration(state.voice.persistent, state.status)) {
-      state.voice.resumeNarration = true;
-      stopPlayback();
-      setVoiceMessage("Book paused. Listening to you…");
-    } else {
-      setVoiceMessage("Listening to you…");
-    }
+    setVoiceMessage("Listening to you…");
   } else if (event.type === "input_audio_buffer.speech_stopped") {
     setVoiceMessage(state.voice.welcome ? "Understanding your choice…" : "Thinking about that passage…");
   } else if (event.type === "response.output_audio_transcript.delta") {
     setVoiceMessage("Book companion is speaking…");
   } else if (event.type === "response.done") {
-    setVoiceMessage(
-      state.voice.status === VOICE_STATES.MUTED
-        ? "Microphone muted."
-        : state.voice.welcome
-          ? "Microphone live. Say the book or starting point you want."
-        : state.voice.persistent
-          ? "Microphone live. Speak to pause the book."
-        : "Listening. Ask about the current passage.",
-    );
+    setVoiceMessage(state.voice.welcome
+      ? "Microphone live. Say the book or starting point you want."
+      : "Listening. Ask about the current passage.");
   } else if (event.type === "error") {
     failVoiceSession(event.error?.message || "The voice session reported an error.");
   }
@@ -1411,7 +1243,7 @@ async function executeAnnotationAction(action) {
         executed: false,
         error: error.message,
       }, { respond: true });
-      setVoiceMessage("Research could not be completed. The microphone remains live.");
+      setVoiceMessage("Research could not be completed. You can try another request.");
       return;
     }
   }
@@ -1463,18 +1295,12 @@ function executeReaderAction(action) {
   });
   if (action.action === "continue" && action.scope === "current_position") {
     state.voice.resumeNarration = false;
-    if (state.voice.persistent) {
-      speakCurrent();
-      setVoiceMessage("Continuing. Microphone remains live.");
-    } else {
-      stopVoiceSession({ continueNarration: true });
-    }
+    stopVoiceSession({ continueNarration: true });
   } else if (action.action === "repeat" && action.scope === "paragraph") {
     state.voice.resumeNarration = false;
+    stopVoiceSession();
     repeatParagraph();
-    if (state.voice.persistent) {
-      setVoiceMessage("Repeating the paragraph. Microphone remains live.");
-    }
+    speakCurrent();
   }
 }
 
@@ -1502,16 +1328,13 @@ function releaseVoiceResources() {
 function failVoiceSession(message) {
   state.voice.token += 1;
   state.voice.resumeNarration = false;
-  state.voice.persistent = false;
   state.voice.welcome = false;
-  state.voice.contextParagraph = null;
-  state.voice.responseActive = false;
-  state.voice.companionAudioPlaying = false;
   releaseVoiceResources();
+  elements.uploadStatus.textContent = message;
   applyVoiceEvent("FAIL", message);
 }
 
-async function startVoiceSession({ persistent = false, welcome = false } = {}) {
+async function startVoiceSession({ welcome = false } = {}) {
   const hasContext = welcome ? state.library.length > 0 : Boolean(state.book);
   if (!hasContext || !state.config?.realtime_configured) {
     setVoiceMessage("Add OPENAI_API_KEY to .env, restart, and try again.");
@@ -1525,11 +1348,9 @@ async function startVoiceSession({ persistent = false, welcome = false } = {}) {
     return false;
   }
 
-  state.voice.persistent = Boolean(persistent);
   state.voice.welcome = Boolean(welcome);
-  state.voice.contextParagraph = null;
-  state.voice.resumeNarration = persistent ? false : shouldResumeAfterVoice(state.status);
-  if (shouldPauseNarrationForVoiceStart(persistent)) stopPlayback();
+  state.voice.resumeNarration = welcome ? false : shouldResumeAfterVoice(state.status);
+  stopPlayback();
   const token = state.voice.token + 1;
   state.voice.token = token;
   applyVoiceEvent("START", "Waiting for microphone permission…");
@@ -1575,14 +1396,13 @@ async function startVoiceSession({ persistent = false, welcome = false } = {}) {
     };
     dataChannel.onopen = () => {
       if (token !== state.voice.token) return;
-      state.voice.contextParagraph = state.book?.segments[state.segmentIndex]?.paragraph ?? null;
       applyVoiceEvent(
         "CONNECTED",
         state.voice.welcome
           ? "Microphone live. Tell me which book you want."
           : "Listening at the stopped sentence. Ask a question or request a note.",
       );
-      if (shouldCreateInitialVoiceResponse(state.voice.persistent, state.voice.welcome)) {
+      if (shouldCreateInitialVoiceResponse(state.voice.welcome)) {
         dataChannel.send(JSON.stringify({ type: "response.create" }));
       }
     };
@@ -1625,7 +1445,6 @@ function toggleOnDemandVoice() {
     VOICE_STATES.REQUESTING,
     VOICE_STATES.CONNECTING,
     VOICE_STATES.LISTENING,
-    VOICE_STATES.MUTED,
   ].includes(state.voice.status)) {
     stopVoiceSession({ resumeInterruptedNarration: true });
     return;
@@ -1644,11 +1463,7 @@ function stopVoiceSession({
     ),
   );
   state.voice.resumeNarration = false;
-  state.voice.persistent = false;
   state.voice.welcome = false;
-  state.voice.contextParagraph = null;
-  state.voice.responseActive = false;
-  state.voice.companionAudioPlaying = false;
   state.voice.token += 1;
   if (state.voice.status !== VOICE_STATES.DISCONNECTED) {
     applyVoiceEvent("STOP", "Ending the voice session…");
@@ -1665,13 +1480,6 @@ function stopVoiceSession({
     renderVoiceState();
   }
   if (shouldResume) speakCurrent();
-}
-
-function clearVoiceMemory() {
-  state.voice.memory = [];
-  if (state.book) localStorage.removeItem(voiceMemoryKey(state.book.id));
-  renderVoiceTranscript();
-  renderVoiceState();
 }
 
 elements.pdfInput.addEventListener("change", uploadSelectedFile);
@@ -1703,9 +1511,7 @@ elements.cloudVoice.addEventListener("change", () => {
   saveSession();
   if (wasActive) speakCurrent();
 });
-elements.questionForm.addEventListener("submit", askQuestion);
 elements.startVoiceButton.addEventListener("click", toggleOnDemandVoice);
-elements.clearVoiceMemoryButton.addEventListener("click", clearVoiceMemory);
 window.addEventListener("beforeunload", () => {
   saveSession();
   releaseVoiceResources();
@@ -1714,5 +1520,4 @@ window.addEventListener("beforeunload", () => {
 });
 
 renderVoiceState();
-renderVoiceTranscript();
 initialize();

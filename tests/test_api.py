@@ -431,34 +431,6 @@ def test_realtime_handoff_maps_upstream_failures(monkeypatch, tmp_path: Path) ->
     assert "(429)" in response.json()["detail"]
 
 
-def test_realtime_context_refresh_tracks_the_current_physical_passage(
-    monkeypatch, tmp_path: Path
-) -> None:
-    client = configure_store(monkeypatch, tmp_path, context_book())
-
-    response = client.post(
-        "/api/books/test-book/realtime/context",
-        json={
-            "segment_index": 2,
-            "recent_turns": [{"role": "user", "text": "What changed?"}],
-        },
-    )
-
-    assert response.status_code == 200
-    instructions = response.json()["instructions"]
-    assert "Current PDF page: 3" in instructions
-    assert "Stopped sentence: This is the closing passage." in instructions
-    assert "Stopped paragraph: This is the closing passage." in instructions
-    assert "[PDF page 2]" in instructions
-    assert "[PDF page 3]" in instructions
-    assert "What changed?" in instructions
-    assert {tool["name"] for tool in response.json()["tools"]} == {
-        "control_reader",
-        "annotate_book",
-    }
-    assert response.json()["tool_choice"] == "auto"
-
-
 def test_upload_rejects_oversized_pdf(monkeypatch, tmp_path: Path) -> None:
     client = configure_store(monkeypatch, tmp_path)
     monkeypatch.setattr(main, "MAX_UPLOAD_BYTES", 8)

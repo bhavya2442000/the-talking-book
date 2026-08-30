@@ -3,7 +3,6 @@ export const VOICE_STATES = Object.freeze({
   REQUESTING: "requesting",
   CONNECTING: "connecting",
   LISTENING: "listening",
-  MUTED: "muted",
   STOPPING: "stopping",
   ERROR: "error",
 });
@@ -12,8 +11,7 @@ const transitions = {
   disconnected: { START: "requesting", FAIL: "error" },
   requesting: { PERMISSION_GRANTED: "connecting", STOP: "stopping", FAIL: "error" },
   connecting: { CONNECTED: "listening", STOP: "stopping", FAIL: "error" },
-  listening: { MUTE: "muted", STOP: "stopping", FAIL: "error" },
-  muted: { UNMUTE: "listening", STOP: "stopping", FAIL: "error" },
+  listening: { STOP: "stopping", FAIL: "error" },
   stopping: { STOPPED: "disconnected", FAIL: "error" },
   error: { START: "requesting", STOP: "stopping", STOPPED: "disconnected" },
 };
@@ -154,18 +152,6 @@ export function shouldResumeAfterVoice(playbackStatus) {
   return ["loading", "playing"].includes(playbackStatus);
 }
 
-export function shouldPauseNarrationForVoiceStart(persistent) {
-  return !persistent;
-}
-
-export function shouldKeepVoiceForPlayback(persistent) {
-  return Boolean(persistent);
-}
-
-export function shouldInterruptNarration(persistent, playbackStatus) {
-  return Boolean(persistent && ["loading", "playing"].includes(playbackStatus));
-}
-
-export function shouldCreateInitialVoiceResponse(_persistent, welcome = false) {
+export function shouldCreateInitialVoiceResponse(welcome = false) {
   return Boolean(welcome);
 }
