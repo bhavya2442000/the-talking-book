@@ -32,7 +32,7 @@ deployment, or other later features during this slice.
   work.
 - Browser position and narration preferences persist in `localStorage`.
 - Passage-grounded explanations work.
-- The Phase 0 baseline is commit `d5b0df9`.
+- The Phase 0 baseline is commit `4711a9b`.
 - Outline sections now include additive `reading_role` and
   `narration_eligible` metadata.
 - Extracted books expose stable first-eligible, preface, introduction, and
